@@ -109,6 +109,7 @@ void writeReport(const HChar* filename){
   if (tracked_ops == NULL){
     VG_(write)(file_d, "No errors found.\n", 17);
     VG_(close)(file_d);
+    VG_(printf)("Wrote report out to %s\n", filename);
     return;
   }
 
@@ -216,4 +217,5 @@ void writeReport(const HChar* filename){
 
   // Finally, close up the file.
   VG_(close)(file_d);
+  VG_(printf)("Wrote report out to %s\n", filename);
 }
