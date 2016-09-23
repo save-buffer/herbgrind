@@ -155,6 +155,7 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
 char* teaToBenchString(TeaNode* tea, Bool haveNewlines);
 char* teaToStructureString(TeaNode* tea);
 
+void printGroups(XArray* groups);
 void printNodeMap(VgHashTable* node_map);
 void printPosition(NodePos pos);
 
