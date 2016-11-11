@@ -590,7 +590,9 @@ That doesn't seem flattened...\n");
         return;
       }
       instrumentOp(sbOut, st->Ist.WrTmp.tmp, expr, stAddr, opNum);
-      addRuntimeMaskCheck(sbOut, &(tempInfluences[st->Ist.WrTmp.tmp]));
+      addRuntimeMaskCheck(sbOut,
+                          &(tempInfluences[st->Ist.WrTmp.tmp]),
+                          "OP");
       break;
       // We don't have to do anything for constants, since a
       // constant isn't considered a float yet.
