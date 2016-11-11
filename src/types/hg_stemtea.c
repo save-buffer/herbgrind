@@ -620,13 +620,14 @@ char* teaToString(TeaNode* tea, SizeT* numVars_out){
     max_tea_track_depth > max_print_depth ?
     max_print_depth : max_tea_track_depth;
   if (tea->type == Node_Branch){
-    result = teaToStringWithMaps(tea, NULL_POS,
+    result = teaToStringWithMaps(tea, tea, NULL_POS,
                                  tea->branch.node_map, var_map,
                                  &nextvar,
                                  max_depth,
                                  NULL, 0);
   } else {
-    result = teaToStringWithMaps(tea, NULL_POS, NULL, var_map,
+    result = teaToStringWithMaps(tea, tea, NULL_POS,
+                                 NULL, var_map,
                                  &nextvar,
                                  max_depth,
                                  NULL, 0);
@@ -670,7 +671,8 @@ char* teaToStructureString(TeaNode* tea, SizeT max_depth){
   return buf;
 }
 
-char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
+char* teaToStringWithMaps(TeaNode* topTea,
+                          TeaNode* curTea, NodePos curpos,
                           VgHashTable* node_map,
                           VgHashTable* var_map,
                           int* nextvar,
@@ -680,11 +682,11 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
   char* buf;
   SizeT bufpos = 0;
   ALLOC(buf, "ast string", max_expr_string_size, sizeof(char));
-  if (tea == NULL){
+  if (curTea == NULL){
     VG_(snprintf)(buf, max_expr_string_size, "...");
-  } else if (tea->type == Node_Leaf || max_depth <= 1){
-    if (tea->hasConst){
-      VG_(snprintf)(buf, max_expr_string_size, "%f", tea->constValue);
+  } else if (curTea->type == Node_Leaf || max_depth <= 1){
+    if (curTea->hasConst){
+      VG_(snprintf)(buf, max_expr_string_size, "%f", curTea->constValue);
     } else {
       if (node_map == NULL){
         VG_(snprintf)(buf, 2, "%c", varNames[0]);
@@ -693,7 +695,7 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
         lookupPosition(group_entry, node_map, curpos);
         if (group_entry == NULL){
           VG_(printf)("Couldn't find a group entry for node %p at position ",
-                      tea);
+                      curTea);
           printPosition(curpos);
           VG_(printf)("\n");
         }
@@ -713,14 +715,10 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
     }
   } else {
     bufpos += VG_(snprintf)(buf, max_expr_string_size, "(%s",
-                            tea->branch.op->debuginfo.symbol);
-    for (SizeT argIdx = 0; argIdx < tea->branch.nargs; ++argIdx){
-      // Shitty loop checking. Eventually this should probably be made
-      // more robust, but cases where it's needed seem exceedingly
-      // rare (even in this simple case we're checking for, it never
-      // showed up in our large benchmarks, only coming up as I was
-      // working on micro-benchmarks to hit edgecases).
-      if (tea->branch.args[argIdx] == tea){
+                            curTea->branch.op->debuginfo.symbol);
+    for (SizeT argIdx = 0; argIdx < curTea->branch.nargs; ++argIdx){
+      // Basic loop checking
+      if (curTea->branch.args[argIdx] == topTea){
         bufpos += VG_(snprintf)(buf + bufpos, max_expr_string_size - bufpos, " LOOP");
       } else {
         NodePos newPos;
@@ -728,14 +726,15 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
         ALLOC(newPos.data, "pos data", newPos.len, sizeof(UInt));
         VG_(memcpy)(newPos.data + 1, curpos.data, curpos.len * sizeof(UInt));
         newPos.data[0] = argIdx;
-        tl_assert2(tea->branch.args[argIdx] != NULL, "Argument is null with max_depth %lu\n", max_depth);
+        tl_assert2(curTea->branch.args[argIdx] != NULL, "Argument is null with max_depth %lu\n", max_depth);
 
-        char* subexpr = teaToStringWithMaps(tea->branch.args[argIdx],
+        char* subexpr = teaToStringWithMaps(topTea,
+                                            curTea->branch.args[argIdx],
                                             newPos, node_map, var_map,
                                             nextvar,
                                             max_depth - 1,
-                                            tea->branch.op->debuginfo.src_filename,
-                                            tea->branch.op->debuginfo.src_line);
+                                            curTea->branch.op->debuginfo.src_filename,
+                                            curTea->branch.op->debuginfo.src_line);
         VG_(free)(newPos.data);
         bufpos += VG_(snprintf)(buf + bufpos, max_expr_string_size - bufpos,
                                 " %s", subexpr);
@@ -746,19 +745,19 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
                             max_expr_string_size - bufpos,
                             ")");
     if (verbose_linenums &&
-        tea->branch.op->debuginfo.src_filename != NULL &&
+        curTea->branch.op->debuginfo.src_filename != NULL &&
         parent_filename != NULL){
-      if (VG_(strcmp)(tea->branch.op->debuginfo.src_filename, parent_filename)){
+      if (VG_(strcmp)(curTea->branch.op->debuginfo.src_filename, parent_filename)){
         bufpos += VG_(snprintf)(buf + bufpos,
                                 max_expr_string_size - bufpos,
                                 ":[%s:%u]",
-                                tea->branch.op->debuginfo.src_filename,
-                                tea->branch.op->debuginfo.src_line);
-      } else if (tea->branch.op->debuginfo.src_line != parent_linenum){
+                                curTea->branch.op->debuginfo.src_filename,
+                                curTea->branch.op->debuginfo.src_line);
+      } else if (curTea->branch.op->debuginfo.src_line != parent_linenum){
         bufpos += VG_(snprintf)(buf + bufpos,
                                 max_expr_string_size - bufpos,
                                 ":[:%u]",
-                                tea->branch.op->debuginfo.src_line);
+                                curTea->branch.op->debuginfo.src_line);
       }
     }
   }

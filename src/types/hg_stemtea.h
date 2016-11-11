@@ -145,7 +145,8 @@ void updateEquivMap(VgHashTable* node_map,
 void freeNodeMapEntry(void* entry);
 
 char* teaToString(TeaNode* tea, SizeT* numVars_out);
-char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
+char* teaToStringWithMaps(TeaNode* topTea, TeaNode* curTea,
+                          NodePos curpos,
                           VgHashTable* node_map,
                           VgHashTable* var_map,
                           int* nextvar,
