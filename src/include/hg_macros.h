@@ -49,4 +49,10 @@ extern uintptr_t maxptr;
                     /* tl_assert(dest != NULL); */
 #define DEBUG(...) VG_(printf)(__VA_ARGS__)
 #define CHECK_PTR(ptr) tl_assert2(ptr == NULL || (minptr <= (intptr_t)ptr && (intptr_t)ptr <= maxptr), "Bad pointer %p (range is [%p to %p])", ptr,minptr, maxptr);
+#ifdef VG_LITTLEENDIAN
+#define ENDIAN Iend_LE
+#else
+#define ENDIAN Iend_BE;
+#endif
+
 #endif

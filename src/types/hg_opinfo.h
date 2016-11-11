@@ -150,10 +150,4 @@ Op_Info* mkOp_Info(SizeT arity, IROp op, Addr opAddr,
 
 Op_Info* mkLeafOp_Info(ShadowValue* val);
 
-#ifdef VG_LITTLEENDIAN
-#define ENDIAN Iend_LE
-#else
-#define ENDIAN Iend_BE;
-#endif
-
 #endif
