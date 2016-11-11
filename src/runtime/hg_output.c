@@ -160,6 +160,7 @@ void recursivelyClearChildren(TeaNode* _node, XArray* influences){
     if (node->type == Node_Branch && entry->depth < max_tea_track_depth){
       for(int i = 0; i < node->branch.nargs; ++i){
         TeaNode* child = node->branch.args[i];
+        if (child == _node) continue;
         if (child != NULL && child->type == Node_Branch){
           queue_push(clearQueue, mkCEntry(child, entry->depth + 1));
           clearInfluence(child->branch.op, influences);
