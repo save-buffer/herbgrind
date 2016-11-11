@@ -715,23 +715,32 @@ char* teaToStringWithMaps(TeaNode* tea, NodePos curpos,
     bufpos += VG_(snprintf)(buf, max_expr_string_size, "(%s",
                             tea->branch.op->debuginfo.symbol);
     for (SizeT argIdx = 0; argIdx < tea->branch.nargs; ++argIdx){
-      NodePos newPos;
-      newPos.len = curpos.len + 1;
-      ALLOC(newPos.data, "pos data", newPos.len, sizeof(UInt));
-      VG_(memcpy)(newPos.data + 1, curpos.data, curpos.len * sizeof(UInt));
-      newPos.data[0] = argIdx;
-      tl_assert2(tea->branch.args[argIdx] != NULL, "Argument is null with max_depth %lu\n", max_depth);
+      // Shitty loop checking. Eventually this should probably be made
+      // more robust, but cases where it's needed seem exceedingly
+      // rare (even in this simple case we're checking for, it never
+      // showed up in our large benchmarks, only coming up as I was
+      // working on micro-benchmarks to hit edgecases).
+      if (tea->branch.args[argIdx] == tea){
+        bufpos += VG_(snprintf)(buf + bufpos, max_expr_string_size - bufpos, " LOOP");
+      } else {
+        NodePos newPos;
+        newPos.len = curpos.len + 1;
+        ALLOC(newPos.data, "pos data", newPos.len, sizeof(UInt));
+        VG_(memcpy)(newPos.data + 1, curpos.data, curpos.len * sizeof(UInt));
+        newPos.data[0] = argIdx;
+        tl_assert2(tea->branch.args[argIdx] != NULL, "Argument is null with max_depth %lu\n", max_depth);
 
-      char* subexpr = teaToStringWithMaps(tea->branch.args[argIdx],
-                                          newPos, node_map, var_map,
-                                          nextvar,
-                                          max_depth - 1,
-                                          tea->branch.op->debuginfo.src_filename,
-                                          tea->branch.op->debuginfo.src_line);
-      VG_(free)(newPos.data);
-      bufpos += VG_(snprintf)(buf + bufpos, max_expr_string_size - bufpos,
-                              " %s", subexpr);
-      VG_(free)(subexpr);
+        char* subexpr = teaToStringWithMaps(tea->branch.args[argIdx],
+                                            newPos, node_map, var_map,
+                                            nextvar,
+                                            max_depth - 1,
+                                            tea->branch.op->debuginfo.src_filename,
+                                            tea->branch.op->debuginfo.src_line);
+        VG_(free)(newPos.data);
+        bufpos += VG_(snprintf)(buf + bufpos, max_expr_string_size - bufpos,
+                                " %s", subexpr);
+        VG_(free)(subexpr);
+      }
     }
     bufpos += VG_(snprintf)(buf + bufpos,
                             max_expr_string_size - bufpos,
