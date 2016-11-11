@@ -89,6 +89,8 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
     if (opinfo->evalinfo.max_error < error_threshold &&
         bitsError >= error_threshold && !localize){
       trackValueExpr(shadowVal);
+    } else if (force){
+      trackValueExpr(shadowVal);
     }
   }
   if (bitsLocal > opinfo->evalinfo.max_local){
@@ -96,6 +98,8 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
     // now. If that's the case, we'll start tracking it.
     if (opinfo->evalinfo.max_local < error_threshold &&
         bitsLocal >= error_threshold && localize){
+      trackValueExpr(shadowVal);
+    } else if (force){
       trackValueExpr(shadowVal);
     }
     // Update the max local error, since the local error of this

@@ -28,6 +28,7 @@
 */
 #include "hg_output.h"
 #include "hg_runtime.h"
+#include "hg_lci.h"
 #include "../types/hg_stemtea.h"
 #include "../types/hg_queue.h"
 #include "pub_tool_libcassert.h"
@@ -42,6 +43,7 @@
 #include "pub_tool_threadstate.h"
 
 XArray* marks;
+Op_Info* influencesTable[64];
 
 // How many characters are going to be allowed in each entry.
 #define ENTRY_BUFFER_SIZE 2048
@@ -53,7 +55,7 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr){
   ALLOC(mark, "output mark", 1, sizeof(OutputMark));
   mark->op = op;
 
-  mark->addr = curAddr;
+  mark->instrAddr = curAddr;
   tl_assert2(VG_(get_filename_linenum)(curAddr,
                                        &(mark->src_filename),
                                        NULL,
@@ -64,7 +66,7 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr){
   return mark;
 }
 
-void markValueImportant(ShadowValue* shadowVal){
+void markValueImportant(ShadowValue* shadowVal, UWord lciBits){
   if (marks == NULL){
     marks = VG_(newXA)(VG_(malloc), "op tracker",
                        VG_(free), sizeof(OutputMark*));
@@ -76,7 +78,7 @@ void markValueImportant(ShadowValue* shadowVal){
   // data.
   OutputMark* curMark = NULL;
   for (int i = 0; i < VG_(sizeXA)(marks); ++i){
-    if ((*(OutputMark**)VG_(indexXA)(marks, i))->addr == curAddr){
+    if ((*(OutputMark**)VG_(indexXA)(marks, i))->instrAddr == curAddr){
       curMark = *(OutputMark**)VG_(indexXA)(marks, i);
       break;
     }
@@ -85,6 +87,8 @@ void markValueImportant(ShadowValue* shadowVal){
     curMark = mkMark(shadowVal->stem->branch.op, curAddr);
     VG_(addToXA)(marks, &curMark);
   }
+  curMark->lciBits |= lciBits;
+  VG_(printf)("Marking output important with value %p.\n", shadowVal);
 
   for (int i = 0; i < VG_(sizeXA)(shadowVal->tracked_influences); ++i){
     Op_Info* new_influence =
@@ -96,8 +100,15 @@ void trackValueExpr(ShadowValue* val){
   tl_assert2(val->stem->type == Node_Branch,
              "Tried to track a leaf value!");
   dedupAdd(val->tracked_influences, val->stem->branch.op);
+
+  int tableIndex = addInfluenceToTableDedup(val->stem->branch.op);
+  uint64_t mask = 1 << tableIndex;
+  tempInfluences[val->stem->branch.op->dest_tmp] |= mask;
+
+  VG_(printf)("Tracking value %p.\n", val);
+
   if (report_all){
-    markValueImportant(val);
+    markValueImportant(val, getMaskTemp(val->stem->branch.op->dest_tmp));
   }
 }
 void propagateInfluences(ShadowValue* dest, int nargs, ...){
@@ -218,7 +229,7 @@ void writeReport(const char* filename){
                                   mark->fnname,
                                   mark->src_filename,
                                   mark->src_line,
-                                  mark->addr,
+                                  mark->instrAddr,
                                   mark->op->evalinfo.total_error /
                                   mark->op->evalinfo.num_calls,
                                   mark->op->evalinfo.max_error,
@@ -237,7 +248,7 @@ void writeReport(const char* filename){
                                   mark->fnname,
                                   mark->src_filename,
                                   mark->src_line,
-                                  mark->addr,
+                                  mark->instrAddr,
                                   mark->op->evalinfo.total_error /
                                   mark->op->evalinfo.num_calls,
                                   mark->op->evalinfo.max_error,
@@ -254,6 +265,19 @@ void writeReport(const char* filename){
         recursivelyClearChildren(influence->tea, influences);
       }
     }
+    entry_len =
+      VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
+                    "   According to lightweight complete influences system:\n");
+    VG_(write)(file_d, buf, entry_len);
+    for(int j = 0; j < 64; ++j){
+      if (mark->lciBits & ((uint64_t)1 << j)){
+        writeEntry(influencesTable[j], file_d);
+      }
+    }
+    entry_len =
+      VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
+                    "   END\n\n");
+    VG_(write)(file_d, buf, entry_len);
     VG_(setCmpFnXA)(influences, (XACmpFn_t)cmp_debuginfo);
     // Sort the entries by maximum error.
     VG_(sortXA)(influences);
@@ -276,90 +300,8 @@ void writeReport(const char* filename){
         }
       }
 
-      if (report_exprs){
-        char* benchString = teaToBenchString(influence->tea, True);
-        if (human_readable){
-          entry_len =
-            VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
-                          "    %s\n"
-                          "    in %s at %s:%u (address %lX)\n"
-                          "    %f bits average error\n"
-                          "    %f bits max error\n"
-                          "    %f bits max local error\n"
-                          "    Aggregated over %lu instances\n\n",
-                          benchString,
-                          influence->debuginfo.fnname,
-                          influence->debuginfo.src_filename,
-                          influence->debuginfo.src_line,
-                          influence->debuginfo.op_addr,
-                          influence->evalinfo.total_error /
-                          influence->evalinfo.num_calls,
-                          influence->evalinfo.max_error,
-                          influence->evalinfo.max_local,
-                          influence->evalinfo.num_calls);
-        } else {
-          entry_len =
-            VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
-                          "    (%s\n"
-                          "     (function \"%s\")\n"
-                          "     (filename \"%s\")\n"
-                          "     (line-num %u)\n"
-                          "     (instr-addr %lX)\n"
-                          "     (avg-error %f)\n"
-                          "     (max-error %f)\n"
-                          "     (max-local %f)\n"
-                          "     (num-calls %lu))\n",
-                          benchString,
-                          influence->debuginfo.fnname,
-                          influence->debuginfo.src_filename,
-                          influence->debuginfo.src_line,
-                          influence->debuginfo.op_addr,
-                          influence->evalinfo.total_error /
-                          influence->evalinfo.num_calls,
-                          influence->evalinfo.max_error,
-                          influence->evalinfo.max_local,
-                          influence->evalinfo.num_calls);
-        }
-      } else {
-        if (human_readable){
-          entry_len =
-            VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
-                          "    %s in %s at %s:%u (address %lX)\n"
-                          "    %f bits average error\n"
-                          "    %f bits max error\n"
-                          "    Aggregated over %lu instances\n\n",
-                          influence->debuginfo.plain_opname,
-                          influence->debuginfo.fnname,
-                          influence->debuginfo.src_filename,
-                          influence->debuginfo.src_line,
-                          influence->debuginfo.op_addr,
-                          influence->evalinfo.total_error /
-                          influence->evalinfo.num_calls,
-                          influence->evalinfo.max_error,
-                          influence->evalinfo.num_calls);
-        } else {
-          entry_len =
-            VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
-                          "    ((plain-name \"%s\")\n"
-                          "     (function \"%s\")\n"
-                          "     (filename \"%s\")\n"
-                          "     (line-num %u)\n"
-                          "     (instr-addr %lX)\n"
-                          "     (avg-error %f)\n"
-                          "     (max-error %f)\n"
-                          "     (num-calls %lu))\n",
-                          influence->debuginfo.plain_opname,
-                          influence->debuginfo.fnname,
-                          influence->debuginfo.src_filename,
-                          influence->debuginfo.src_line,
-                          influence->debuginfo.op_addr,
-                          influence->evalinfo.total_error /
-                          influence->evalinfo.num_calls,
-                          influence->evalinfo.max_error,
-                          influence->evalinfo.num_calls);
-        }
-      }
-      VG_(write)(file_d, buf, entry_len);
+      writeEntry(influence, file_d);
+
       if (report_all){
         VG_(addToXA)(influencesPrinted, &influence);
       }
@@ -384,4 +326,107 @@ void dedupAdd(XArray* array, void* item){
   if (!already_have){
     VG_(addToXA)(array, &item);
   }
+}
+int addInfluenceToTableDedup(Op_Info* influence){
+  int i;
+  for (i = 0; i < 64; ++i){
+    if (influencesTable[i] == influence){
+      return i;
+    }
+    if (influencesTable[i] == NULL){
+      break;
+    }
+  }
+  tl_assert2(i < 64, "Too many influences added to table!!!\n");
+  influencesTable[i] = influence;
+  return i;
+}
+
+void writeEntry(Op_Info* opinfo, Int file_d){
+  UInt entry_len;
+  HChar buf[ENTRY_BUFFER_SIZE];
+  if (report_exprs){
+    char* benchString = teaToBenchString(opinfo->tea, True);
+    if (human_readable){
+      entry_len =
+        VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
+                      "    %s\n"
+                      "    in %s at %s:%u (address %lX)\n"
+                      "    %f bits average error\n"
+                      "    %f bits max error\n"
+                      "    %f bits max local error\n"
+                      "    Aggregated over %lu instances\n\n",
+                      benchString,
+                      opinfo->debuginfo.fnname,
+                      opinfo->debuginfo.src_filename,
+                      opinfo->debuginfo.src_line,
+                      opinfo->debuginfo.op_addr,
+                      opinfo->evalinfo.total_error /
+                      opinfo->evalinfo.num_calls,
+                      opinfo->evalinfo.max_error,
+                      opinfo->evalinfo.max_local,
+                      opinfo->evalinfo.num_calls);
+    } else {
+      entry_len =
+        VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
+                      "    (%s\n"
+                      "     (function \"%s\")\n"
+                      "     (filename \"%s\")\n"
+                      "     (line-num %u)\n"
+                      "     (instr-addr %lX)\n"
+                      "     (avg-error %f)\n"
+                      "     (max-error %f)\n"
+                      "     (max-local %f)\n"
+                      "     (num-calls %lu))\n",
+                      benchString,
+                      opinfo->debuginfo.fnname,
+                      opinfo->debuginfo.src_filename,
+                      opinfo->debuginfo.src_line,
+                      opinfo->debuginfo.op_addr,
+                      opinfo->evalinfo.total_error /
+                      opinfo->evalinfo.num_calls,
+                      opinfo->evalinfo.max_error,
+                      opinfo->evalinfo.max_local,
+                      opinfo->evalinfo.num_calls);
+    }
+  } else {
+    if (human_readable){
+      entry_len =
+        VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
+                      "    %s in %s at %s:%u (address %lX)\n"
+                      "    %f bits average error\n"
+                      "    %f bits max error\n"
+                      "    Aggregated over %lu instances\n\n",
+                      opinfo->debuginfo.plain_opname,
+                      opinfo->debuginfo.fnname,
+                      opinfo->debuginfo.src_filename,
+                      opinfo->debuginfo.src_line,
+                      opinfo->debuginfo.op_addr,
+                      opinfo->evalinfo.total_error /
+                      opinfo->evalinfo.num_calls,
+                      opinfo->evalinfo.max_error,
+                      opinfo->evalinfo.num_calls);
+    } else {
+      entry_len =
+        VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
+                      "    ((plain-name \"%s\")\n"
+                      "     (function \"%s\")\n"
+                      "     (filename \"%s\")\n"
+                      "     (line-num %u)\n"
+                      "     (instr-addr %lX)\n"
+                      "     (avg-error %f)\n"
+                      "     (max-error %f)\n"
+                      "     (num-calls %lu))\n",
+                      opinfo->debuginfo.plain_opname,
+                      opinfo->debuginfo.fnname,
+                      opinfo->debuginfo.src_filename,
+                      opinfo->debuginfo.src_line,
+                      opinfo->debuginfo.op_addr,
+                      opinfo->evalinfo.total_error /
+                      opinfo->evalinfo.num_calls,
+                      opinfo->evalinfo.max_error,
+                      opinfo->evalinfo.num_calls);
+    }
+  }
+  VG_(write)(file_d, buf, entry_len);
 }

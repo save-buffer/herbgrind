@@ -35,7 +35,8 @@
 
 typedef struct _OutputMark {
   Op_Info* op;
-  Addr addr;
+  Addr instrAddr;
+  UWord lciBits;
   UInt src_line;
   const HChar* src_filename;
   const HChar* fnname;
@@ -45,13 +46,15 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr);
 
 void dedupAdd(XArray* array, void* item);
 
-void markValueImportant(ShadowValue* shadowVal);
+void markValueImportant(ShadowValue* shadowVal, UWord lciBits);
 void propagateInfluences(ShadowValue* dest, int nargs, ...);
 void trackValueExpr(ShadowValue* val);
+int addInfluenceToTableDedup(Op_Info* influence);
 
 void clearInfluence(Op_Info* opinfo, XArray* influences);
 void recursivelyClearChildren(TeaNode* _node, XArray* influences);
 Word cmp_debuginfo(const Op_Info** a, const Op_Info** b);
 void writeReport(const char* filename);
+void writeEntry(Op_Info* opinfo, Int file_d);
 
 #endif

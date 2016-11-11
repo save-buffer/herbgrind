@@ -107,19 +107,19 @@ typedef enum {
       _qzz_res;                                                         \
     }))
 
-#define HERBGRIND_FORCE_TRACK(_qzz_varaddr)                  \
+#define HERBGRIND_FORCE_TRACK(_qzz_var)                  \
   (__extension__({unsigned long _qzz_res;                       \
       VALGRIND_DO_CLIENT_REQUEST(_qzz_res, 0,                   \
                                  VG_USERREQ__FORCE_TRACK,    \
-                                 _qzz_varaddr, 0, 0, 0, 0);     \
+                                 &_qzz_var, 0, 0, 0, 0);     \
       _qzz_res;                                                 \
     }))
 
-#define HERBGRIND_FORCE_TRACKF(_qzz_varaddr)                 \
+#define HERBGRIND_FORCE_TRACKF(_qzz_var)                 \
   (__extension__({unsigned long _qzz_res;                       \
       VALGRIND_DO_CLIENT_REQUEST(_qzz_res, 0,                   \
                                  VG_USERREQ__FORCE_TRACK,    \
-                                 _qzz_varaddr, 0, 0, 0, 0);     \
+                                 &_qzz_var, 0, 0, 0, 0);     \
       _qzz_res;                                                 \
     }))
 

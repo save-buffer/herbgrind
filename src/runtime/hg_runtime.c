@@ -32,6 +32,7 @@
 
 #include "hg_mathreplace.h"
 #include "../include/hg_options.h"
+#include "hg_lci.h"
 
 // Pull in this header file so that we can set the strlen, strcpy,
 // memmove, memcmp, and memset functions of mpfr to their valgrind
@@ -70,9 +71,11 @@ void init_runtime(void){
   initStorage();
   // Set up the wrapping function table
   callToOpInfoMap = VG_(HT_construct)("callToOpInfoMap");
+  lciGlobalInit();
 }
 void cleanup_runtime(void){
   // Clean up the mpfr cache
   mpfr_free_cache();
   cleanupStorage();
+  lciGlobalTeardown();
 }

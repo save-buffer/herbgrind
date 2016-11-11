@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source "$(dirname "$0")/paths.sh"
+source /home/alex/herbie-all/herbgrind/test/paths.sh
 
 if ! make -C $HERBGRIND_DIR > compile-log.txt;
 then

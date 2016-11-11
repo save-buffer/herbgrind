@@ -39,6 +39,7 @@
 #include "../types/hg_stemtea.h"
 #include "hg_runtime.h"
 #include "hg_output.h"
+#include "hg_lci.h"
 
 #include "performance_analysis.h"
 
@@ -1408,12 +1409,14 @@ void replaceWithExactValueF(float* valueAddr){
 }
 void forceEvaluateValue(Addr valueAddr){
   ShadowValue* shadowVal = getMem(valueAddr);
+  VG_(printf)("Forcing value %p to be evaluated.\n", shadowVal);
   if (shadowVal == NULL || shadowVal->stem->type == Node_Leaf){
     VG_(printf)("Cannot evaluate the error of a leaf node!!!\n");
     return;
   }
   evaluateOpError(shadowVal, *(double*)valueAddr, shadowVal->stem->branch.op,
                   *(double*)valueAddr, True);
+  setMaskMem(valueAddr, getMaskTemp(shadowVal->stem->branch.op->dest_tmp));
 }
 void forceEvaluateValueF(Addr valueAddr){
   ShadowValue* shadowVal = getMem(valueAddr);
@@ -1423,4 +1426,5 @@ void forceEvaluateValueF(Addr valueAddr){
   }
   evaluateOpError(shadowVal, *(float*)valueAddr, shadowVal->stem->branch.op,
                   *(float*)valueAddr, True);
+  setMaskMem(valueAddr, getMaskTemp(shadowVal->stem->branch.op->dest_tmp));
 }

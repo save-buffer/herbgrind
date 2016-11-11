@@ -36,6 +36,7 @@
 #include "../include/hg_macros.h"
 #include "../include/hg_options.h"
 #include "hg_runtime.h"
+#include "hg_lci.h"
 
 // This gets us a hash table data structure that's safe to use with
 // valgrind, so we can set up a memory map for shadowing values that
@@ -223,6 +224,7 @@ VG_REGPARM(0) void cleanupBlock(void){
       localTemps[i] = NULL;
     }
   }
+  lciBlockTeardown();
 }
 
 void cleanupStorage(void){

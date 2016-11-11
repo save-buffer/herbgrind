@@ -58,6 +58,13 @@
 
 #define addStore(sb, src_expr, dest_addr) \
   addStmtToIRSB(sb, IRStmt_Store(ENDIAN, mkU64((uintptr_t)dest_addr), src_expr));
+#define addLoad64(sb, addr, temp) \
+  addStmtToIRSB(sb, IRStmt_WrTmp(temp, IRExpr_Load(ENDIAN, Ity_I64, mkU64((uintptr_t)addr))));
+
+#define addRuntimeMaskCheck(sb, addr) \
+  addStmtToIRSB(sb, IRStmt_Dirty(unsafeIRDirty_0_N(1, "printIfBitsNonZero", \
+                                                   VG_(fnptr_to_fnentry)(&printIfBitsNonZero), \
+                                                   mkIRExprVec_1(mkU64((uintptr_t) addr))))); \
 
 // Instrument a single statement, adding the instrumented statements
 // to sbOut.

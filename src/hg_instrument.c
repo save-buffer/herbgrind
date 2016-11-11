@@ -32,7 +32,9 @@
 #include "include/hg_helper.h"
 #include "include/hg_macros.h"
 #include "runtime/hg_mathreplace.h"
+#include "runtime/hg_lci.h"
 #include "pub_tool_hashtable.h"
+#include "pub_tool_threadstate.h"
 
 VgHashTable* opinfo_store;
 
@@ -79,6 +81,13 @@ void instrumentStatement(IRStmt* st, IRSB* sbOut, Addr stAddr, int opNum){
                             mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
         addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
       }
+      IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+      addLoad64(sbOut, &(tempInfluences[expr->Iex.RdTmp.tmp]), influence);
+      addStore(sbOut,
+               IRExpr_RdTmp(influence),
+               &(tsInfluences
+                 [VG_(get_running_tid)()]
+                 [st->Ist.Put.offset]));
       break;
     case Iex_Const:
       break;
@@ -100,29 +109,47 @@ That doesn't seem flattened...\n");
     expr = st->Ist.PutI.details->data;
     switch (expr->tag) {
     case Iex_RdTmp:
-      if (!isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)) break;
-      ALLOC(cpinfo, "hg.copyShadowTmptoTSInfo.1", 1, sizeof(CpShadow_Info));
-      cpinfo->instr_addr = stAddr;
-      cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
-      cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+      {
+        IRExpr* indexExpr =
+          // Calculate array_base + (ix + bias) %
+          // array_len at run time. This will give us
+          // the offset into the thread state at which
+          // the actual put is happening, so we can
+          // use that same offset for the shadow get.
+          mkArrayLookupExpr(st->Ist.PutI.details->descr->base,
+                            st->Ist.PutI.details->ix,
+                            st->Ist.PutI.details->bias,
+                            st->Ist.PutI.details->descr->nElems,
+                            sbOut);
+        IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+        addLoad64(sbOut, &(tempInfluences[expr->Iex.RdTmp.tmp]),
+                  influence);
+        IRTemp destAddr = newIRTemp(sbOut->tyenv, Ity_I64);
+        IRStmt* computeDestAddr =
+          IRStmt_WrTmp(destAddr,
+                       IRExpr_Binop(Iop_Add64,
+                                    mkU64((uintptr_t)tsInfluences
+                                          [VG_(get_running_tid)()]),
+                                    indexExpr));
+        addStmtToIRSB(sbOut, computeDestAddr);
+        addStore(sbOut,
+                 IRExpr_RdTmp(influence),
+                 IRExpr_RdTmp(destAddr));
+        if (!isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)) break;
+        ALLOC(cpinfo, "hg.copyShadowTmptoTSInfo.1", 1, sizeof(CpShadow_Info));
+        cpinfo->instr_addr = stAddr;
+        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
 
-      addStore(sbOut,
-               // Calculate array_base + (ix + bias) %
-               // array_len at run time. This will give us
-               // the offset into the thread state at which
-               // the actual put is happening, so we can
-               // use that same offset for the shadow get.
-               mkArrayLookupExpr(st->Ist.PutI.details->descr->base,
-                                 st->Ist.PutI.details->ix,
-                                 st->Ist.PutI.details->bias,
-                                 st->Ist.PutI.details->descr->nElems,
-                                 sbOut),
-               &(cpinfo->dest_idx));
-      copyShadowLocation =
-        unsafeIRDirty_0_N(1, "copyShadowTmptoTS",
-                          VG_(fnptr_to_fnentry)(&copyShadowTmptoTS),
-                          mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-      addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        addStore(sbOut,
+                 indexExpr,
+                 &(cpinfo->dest_idx));
+        copyShadowLocation =
+          unsafeIRDirty_0_N(1, "copyShadowTmptoTS",
+                            VG_(fnptr_to_fnentry)(&copyShadowTmptoTS),
+                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      }
       break;
     case Iex_Const:
       break;
@@ -137,60 +164,132 @@ That doesn't seem flattened...\n");
   case Ist_WrTmp:
     // Here we'll instrument moving Shadow values into temps. See
     // above.
-    if (!isFloat(sbOut->tyenv, st->Ist.WrTmp.tmp)) break;
     expr = st->Ist.WrTmp.data;
+    IRTemp oldMax = newIRTemp(sbOut->tyenv, Ity_I64);
+    addLoad64(sbOut, &maxTempInfluencesUsed, oldMax);
+    IRTemp greaterThanMaxTemp = newIRTemp(sbOut->tyenv, Ity_I1);
+    IRStmt* checkGreater =
+      IRStmt_WrTmp(greaterThanMaxTemp,
+                   IRExpr_Binop(Iop_CmpLT64U,
+                                IRExpr_RdTmp(oldMax),
+                                mkU64(st->Ist.WrTmp.tmp)));
+    addStmtToIRSB(sbOut, checkGreater);
+    IRTemp newMaxTemp = newIRTemp(sbOut->tyenv, Ity_I64);
+    IRStmt* getNewMax =
+      IRStmt_WrTmp(newMaxTemp,
+                   IRExpr_ITE(IRExpr_RdTmp(greaterThanMaxTemp),
+                              mkU64(st->Ist.WrTmp.tmp),
+                              IRExpr_RdTmp(oldMax)));
+    addStmtToIRSB(sbOut, getNewMax);
+
+    addStore(sbOut,
+             IRExpr_RdTmp(newMaxTemp),
+             &maxTempInfluencesUsed);
     switch(expr->tag) {
     case Iex_Get:
-      ALLOC(cpinfo, "hg.copyShadowTStoTmpInfo.1", 1, sizeof(CpShadow_Info));
-      cpinfo->instr_addr = stAddr;
-      cpinfo->type = expr->Iex.Get.ty;
-      cpinfo->src_idx = expr->Iex.Get.offset;
-      cpinfo->dest_idx = st->Ist.WrTmp.tmp;
-      copyShadowLocation =
-        unsafeIRDirty_0_N(1,
-                          "copyShadowTStoTmp",
-                          VG_(fnptr_to_fnentry)(&copyShadowTStoTmp),
-                          mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-      addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      {
+        IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+        addLoad64(sbOut,
+                  &(tsInfluences
+                    [VG_(get_running_tid)()]
+                    [expr->Iex.Get.offset]),
+                  influence);
+
+        addStore(sbOut,
+                 IRExpr_RdTmp(influence),
+                 &(tempInfluences[st->Ist.WrTmp.tmp]));
+        if (!isFloat(sbOut->tyenv, st->Ist.WrTmp.tmp)) break;
+        ALLOC(cpinfo, "hg.copyShadowTStoTmpInfo.1", 1,
+              sizeof(CpShadow_Info));
+        cpinfo->instr_addr = stAddr;
+        cpinfo->type = expr->Iex.Get.ty;
+        cpinfo->src_idx = expr->Iex.Get.offset;
+        cpinfo->dest_idx = st->Ist.WrTmp.tmp;
+        copyShadowLocation =
+          unsafeIRDirty_0_N(1,
+                            "copyShadowTStoTmp",
+                            VG_(fnptr_to_fnentry)(&copyShadowTStoTmp),
+                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      }
       break;
     case Iex_GetI:
-      // See comments above on PutI to make sense of this thing.
-      ALLOC(cpinfo, "hg.copyShadowTStoTmpInfo.1", 1, sizeof(CpShadow_Info));
-      cpinfo->instr_addr = stAddr;
-      cpinfo->type = expr->Iex.Get.ty;
-      cpinfo->dest_idx = st->Ist.WrTmp.tmp;
+      {
+        IRExpr* indexExpr =
+          // Calculate array_base + (ix + bias) %
+          // array_len at run time. This will give us
+          // the offset into the thread state at which
+          // the actual get is happening, so we can
+          // use that same offset for the shadow get.
+          mkArrayLookupExpr(expr->Iex.GetI.descr->base,
+                            expr->Iex.GetI.ix,
+                            expr->Iex.GetI.bias,
+                            expr->Iex.GetI.descr->nElems,
+                            sbOut);
+        IRTemp srcAddr = newIRTemp(sbOut->tyenv, Ity_I64);
+        IRStmt* computeSrcAddr =
+          IRStmt_WrTmp(srcAddr,
+                       IRExpr_Binop(Iop_Add64,
+                                    mkU64((uintptr_t)tsInfluences
+                                          [VG_(get_running_tid)()]),
+                                    indexExpr));
+        addStmtToIRSB(sbOut, computeSrcAddr);
+        IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+        addLoad64(sbOut, IRExpr_RdTmp(srcAddr),
+                  influence);
+        addStore(sbOut,
+                 IRExpr_RdTmp(influence),
+                 &(tempInfluences[st->Ist.WrTmp.tmp]));
+        if (!isFloat(sbOut->tyenv, st->Ist.WrTmp.tmp)) break;
+        // See comments above on PutI to make sense of this thing.
+        ALLOC(cpinfo, "hg.copyShadowTStoTmpInfo.1", 1,
+              sizeof(CpShadow_Info));
+        cpinfo->instr_addr = stAddr;
+        cpinfo->type = expr->Iex.Get.ty;
+        cpinfo->dest_idx = st->Ist.WrTmp.tmp;
 
-      addStore(sbOut,
-               // Calculate array_base + (ix + bias) %
-               // array_len at run time. This will give us
-               // the offset into the thread state at which
-               // the actual get is happening, so we can
-               // use that same offset for the shadow get.
-               mkArrayLookupExpr(expr->Iex.GetI.descr->base,
-                                 expr->Iex.GetI.ix,
-                                 expr->Iex.GetI.bias,
-                                 expr->Iex.GetI.descr->nElems,
-                                 sbOut),
-               &(cpinfo->src_idx));
-      copyShadowLocation =
-        unsafeIRDirty_0_N(1,
-                          "copyShadowTStoTmp",
-                          VG_(fnptr_to_fnentry)(&copyShadowTStoTmp),
-                          mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-      addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        addStore(sbOut,
+                 // Calculate array_base + (ix + bias) %
+                 // array_len at run time. This will give us
+                 // the offset into the thread state at which
+                 // the actual get is happening, so we can
+                 // use that same offset for the shadow get.
+                 mkArrayLookupExpr(expr->Iex.GetI.descr->base,
+                                   expr->Iex.GetI.ix,
+                                   expr->Iex.GetI.bias,
+                                   expr->Iex.GetI.descr->nElems,
+                                   sbOut),
+                 &(cpinfo->src_idx));
+        copyShadowLocation =
+          unsafeIRDirty_0_N(1,
+                            "copyShadowTStoTmp",
+                            VG_(fnptr_to_fnentry)(&copyShadowTStoTmp),
+                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      }
       break;
     case Iex_RdTmp:
-      ALLOC(cpinfo, "hg.copyShadowTmptoTmpInfo.1", 1, sizeof(CpShadow_Info));
-      cpinfo->instr_addr = stAddr;
-      cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
-      cpinfo->src_idx = expr->Iex.RdTmp.tmp;
-      cpinfo->dest_idx = st->Ist.WrTmp.tmp;
-      copyShadowLocation =
-        unsafeIRDirty_0_N(1,
-                          "copyShadowTmptoTmp",
-                          VG_(fnptr_to_fnentry)(&copyShadowTmptoTmp),
-                          mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-      addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      {
+        IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+        addLoad64(sbOut, &(tempInfluences[expr->Iex.RdTmp.tmp]),
+                  influence);
+        addStore(sbOut,
+                 IRExpr_RdTmp(influence),
+                 &(tempInfluences[st->Ist.WrTmp.tmp]));
+        if (!isFloat(sbOut->tyenv, st->Ist.WrTmp.tmp)) break;
+        ALLOC(cpinfo, "hg.copyShadowTmptoTmpInfo.1", 1,
+              sizeof(CpShadow_Info));
+        cpinfo->instr_addr = stAddr;
+        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+        cpinfo->dest_idx = st->Ist.WrTmp.tmp;
+        copyShadowLocation =
+          unsafeIRDirty_0_N(1,
+                            "copyShadowTmptoTmp",
+                            VG_(fnptr_to_fnentry)(&copyShadowTmptoTmp),
+                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      }
       break;
     case Iex_ITE:
       {
@@ -219,6 +318,7 @@ That doesn't seem flattened...\n");
         } else {
           falseTemp = expr->Iex.ITE.iffalse->Iex.RdTmp.tmp;
         }
+
         IRTemp condTmp = newIRTemp(sbOut->tyenv, Ity_I64);
         IRStmt* pickTmp = IRStmt_WrTmp(condTmp,
                                        IRExpr_ITE(expr->Iex.ITE.cond,
@@ -234,6 +334,24 @@ That doesn't seem flattened...\n");
                                                   mkU64(trueTemp),
                                                   mkU64(falseTemp)));
         addStmtToIRSB(sbOut, pickTmp);
+
+        IRTemp influenceAddr = newIRTemp(sbOut->tyenv, Ity_I64);
+        IRStmt* getAddr =
+          IRStmt_WrTmp(influenceAddr,
+                       IRExpr_Binop(Iop_Add64,
+                                    mkU64((uintptr_t)tempInfluences),
+                                    IRExpr_RdTmp(condTmp)));
+        addStmtToIRSB(sbOut, getAddr);
+        IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+        addStmtToIRSB(sbOut,
+                      IRStmt_WrTmp(influence,
+                                   IRExpr_Load(ENDIAN,
+                                               Ity_I64,
+                                               IRExpr_RdTmp(influenceAddr))));
+        addStore(sbOut,
+                 IRExpr_RdTmp(influence),
+                 &(tempInfluences[st->Ist.WrTmp.tmp]));
+        if (!isFloat(sbOut->tyenv, st->Ist.WrTmp.tmp)) break;
 
         ALLOC(cpinfo, "hg.copyShadowTmptoTmpInfo.1", 1, sizeof(CpShadow_Info));
         cpinfo->instr_addr = stAddr;
@@ -255,27 +373,225 @@ That doesn't seem flattened...\n");
       }
       break;
     case Iex_Load:
-      if (isFloatType(expr->Iex.Load.ty)){
-        ALLOC(cpinfo, "hg.copyShadowMemtoTmpInfo.1", 1, sizeof(CpShadow_Info));
-        cpinfo->instr_addr = stAddr;
-        cpinfo->type = expr->Iex.Load.ty;
-        cpinfo->dest_idx = st->Ist.WrTmp.tmp;
-        addStore(sbOut,
-                 expr->Iex.Load.addr,
-                 &(cpinfo->src_idx));
-        copyShadowLocation =
-          unsafeIRDirty_0_N(1,
-                            "copyShadowMemtoTmp",
-                            VG_(fnptr_to_fnentry)(&copyShadowMemtoTmp),
-                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      {
+        IRDirty* cpInfluence =
+          unsafeIRDirty_0_N(2,
+                            "copyInfluenceFromMem",
+                            VG_(fnptr_to_fnentry)(&copyInfluenceFromMem),
+                            mkIRExprVec_2(mkU64((uintptr_t)
+                                                expr->Iex.Load.addr),
+                                          mkU64((uintptr_t)
+                                                st->Ist.WrTmp.tmp)));
+
+        addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
+        if (isFloatType(expr->Iex.Load.ty)){
+          ALLOC(cpinfo, "hg.copyShadowMemtoTmpInfo.1", 1, sizeof(CpShadow_Info));
+          cpinfo->instr_addr = stAddr;
+          cpinfo->type = expr->Iex.Load.ty;
+          cpinfo->dest_idx = st->Ist.WrTmp.tmp;
+          addStore(sbOut,
+                   expr->Iex.Load.addr,
+                   &(cpinfo->src_idx));
+          copyShadowLocation =
+            unsafeIRDirty_0_N(1,
+                              "copyShadowMemtoTmp",
+                              VG_(fnptr_to_fnentry)(&copyShadowMemtoTmp),
+                              mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+          addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        }
       }
       break;
     case Iex_Qop:
     case Iex_Triop:
     case Iex_Binop:
     case Iex_Unop:
+      switch(expr->tag){
+      case Iex_Unop:
+        {
+          IRExpr* arg = expr->Iex.Unop.arg;
+          if(arg->tag == Iex_RdTmp){
+            IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut,
+                      &(tempInfluences[arg->Iex.RdTmp.tmp]),
+                      influence);
+            addStore(sbOut,
+                     IRExpr_RdTmp(influence),
+                     &(tempInfluences[st->Ist.WrTmp.tmp]));
+          } else {
+            addStore(sbOut,
+                     mkU64(0),
+                     &(tempInfluences[st->Ist.WrTmp.tmp]));
+          }
+        }
+        break;
+      case Iex_Binop:
+        {
+          IRExpr* arg1 = expr->Iex.Binop.arg1;
+          IRExpr* arg2 = expr->Iex.Binop.arg2;
+
+          IRTemp newInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+          addStmtToIRSB(sbOut,
+                        IRStmt_WrTmp(newInfluence, mkU64(0)));
+
+          if (arg1->tag == Iex_RdTmp){
+            IRTemp arg1Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg1->Iex.RdTmp.tmp]),
+                      arg1Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg1 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg1Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg1);
+            newInfluence = nextInfluence;
+          }
+          if (arg2->tag == Iex_RdTmp){
+            IRTemp arg2Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg2->Iex.RdTmp.tmp]),
+                      arg2Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg2 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg2Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg2);
+            newInfluence = nextInfluence;
+          }
+          addStore(sbOut,
+                   IRExpr_RdTmp(newInfluence),
+                   &(tempInfluences[st->Ist.WrTmp.tmp]));
+        }
+        break;
+      case Iex_Triop:
+        {
+          IRExpr* arg1 = expr->Iex.Triop.details->arg1;
+          IRExpr* arg2 = expr->Iex.Triop.details->arg2;
+          IRExpr* arg3 = expr->Iex.Triop.details->arg3;
+
+          IRTemp newInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+          addStmtToIRSB(sbOut,
+                        IRStmt_WrTmp(newInfluence, mkU64(0)));
+
+          if (arg1->tag == Iex_RdTmp){
+            IRTemp arg1Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg1->Iex.RdTmp.tmp]),
+                      arg1Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg1 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg1Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg1);
+            newInfluence = nextInfluence;
+          }
+          if (arg2->tag == Iex_RdTmp){
+            IRTemp arg2Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg2->Iex.RdTmp.tmp]),
+                      arg2Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg2 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg2Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg2);
+            newInfluence = nextInfluence;
+          }
+          if (arg3->tag == Iex_RdTmp){
+            IRTemp arg3Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg3->Iex.RdTmp.tmp]),
+                      arg3Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg3 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg3Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg3);
+            newInfluence = nextInfluence;
+          }
+          addStore(sbOut,
+                   IRExpr_RdTmp(newInfluence),
+                   &(tempInfluences[st->Ist.WrTmp.tmp]));
+        }
+        break;
+      case Iex_Qop:
+        {
+          IRExpr* arg1 = expr->Iex.Qop.details->arg1;
+          IRExpr* arg2 = expr->Iex.Qop.details->arg2;
+          IRExpr* arg3 = expr->Iex.Qop.details->arg3;
+          IRExpr* arg4 = expr->Iex.Qop.details->arg4;
+
+          IRTemp newInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+          addStmtToIRSB(sbOut,
+                        IRStmt_WrTmp(newInfluence, mkU64(0)));
+
+          if (arg1->tag == Iex_RdTmp){
+            IRTemp arg1Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg1->Iex.RdTmp.tmp]),
+                      arg1Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg1 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg1Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg1);
+            newInfluence = nextInfluence;
+          }
+          if (arg2->tag == Iex_RdTmp){
+            IRTemp arg2Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg2->Iex.RdTmp.tmp]),
+                      arg2Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg2 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg2Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg2);
+            newInfluence = nextInfluence;
+          }
+          if (arg3->tag == Iex_RdTmp){
+            IRTemp arg3Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg3->Iex.RdTmp.tmp]),
+                      arg3Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg3 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg3Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg3);
+            newInfluence = nextInfluence;
+          }
+          if (arg4->tag == Iex_RdTmp){
+            IRTemp arg4Influence = newIRTemp(sbOut->tyenv, Ity_I64);
+            addLoad64(sbOut, &(tempInfluences[arg4->Iex.RdTmp.tmp]),
+                      arg4Influence);
+            IRTemp nextInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+            IRStmt* andArg4 =
+              IRStmt_WrTmp(nextInfluence,
+                           IRExpr_Binop(Iop_Or64,
+                                        IRExpr_RdTmp(arg4Influence),
+                                        IRExpr_RdTmp(newInfluence)));
+            addStmtToIRSB(sbOut, andArg4);
+            newInfluence = nextInfluence;
+          }
+          addStore(sbOut,
+                   IRExpr_RdTmp(newInfluence),
+                   &(tempInfluences[st->Ist.WrTmp.tmp]));
+        }
+        break;
+      default:
+        tl_assert(0);
+        return;
+      }
       instrumentOp(sbOut, st->Ist.WrTmp.tmp, expr, stAddr, opNum);
+      addRuntimeMaskCheck(sbOut, &(tempInfluences[st->Ist.WrTmp.tmp]));
       break;
       // We don't have to do anything for constants, since a
       // constant isn't considered a float yet.
@@ -296,6 +612,14 @@ That doesn't seem flattened...\n");
     expr = st->Ist.Store.data;
     switch (expr->tag) {
     case Iex_RdTmp:
+      {
+        IRDirty* cpInfluence =
+          unsafeIRDirty_0_N(2,
+                            "copyInfluenceToMem",
+                            VG_(fnptr_to_fnentry)(&copyInfluenceToMem),
+                            mkIRExprVec_2(mkU64(expr->Iex.RdTmp.tmp),
+                                          st->Ist.Store.addr));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
       if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
         ALLOC(cpinfo, "hg.copyShadowTmptoMemInfo.1", 1, sizeof(CpShadow_Info));
         cpinfo->src_idx = expr->Iex.RdTmp.tmp;
@@ -313,6 +637,7 @@ That doesn't seem flattened...\n");
                             mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
         addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
       }
+                                                                        }
       break;
     case Iex_Const:
       break;
@@ -330,23 +655,33 @@ That doesn't seem flattened...\n");
     expr = st->Ist.StoreG.details->data;
     switch(expr->tag) {
     case Iex_RdTmp:
-      if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
-        ALLOC(cpinfo, "hg.copyShadowTmptoMemGInfo.1", 1, sizeof(CpShadow_Info));
-        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
-        cpinfo->instr_addr = stAddr;
-        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+      {
+        IRDirty* cpInfluence =
+          unsafeIRDirty_0_N(3,
+                            "copyInfluenceToMemIf",
+                            VG_(fnptr_to_fnentry)(&copyInfluenceToMemIf),
+                            mkIRExprVec_3(mkU64(expr->Iex.RdTmp.tmp),
+                                          st->Ist.StoreG.details->addr,
+                                          st->Ist.StoreG.details->guard));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
+        if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
+          ALLOC(cpinfo, "hg.copyShadowTmptoMemGInfo.1", 1, sizeof(CpShadow_Info));
+          cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+          cpinfo->instr_addr = stAddr;
+          cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
 
-        addStore(sbOut,
-                 st->Ist.StoreG.details->addr,
-                 &(cpinfo->dest_idx));
+          addStore(sbOut,
+                   st->Ist.StoreG.details->addr,
+                   &(cpinfo->dest_idx));
 
-        copyShadowLocation =
-          unsafeIRDirty_0_N(2,
-                            "copyShadowTmptoMemG",
-                            VG_(fnptr_to_fnentry)(&copyShadowTmptoMemG),
-                            mkIRExprVec_2(st->Ist.StoreG.details->guard,
-                                          mkU64((uintptr_t)cpinfo)));
-        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+          copyShadowLocation =
+            unsafeIRDirty_0_N(2,
+                              "copyShadowTmptoMemG",
+                              VG_(fnptr_to_fnentry)(&copyShadowTmptoMemG),
+                              mkIRExprVec_2(st->Ist.StoreG.details->guard,
+                                            mkU64((uintptr_t)cpinfo)));
+          addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        }
       }
       break;
     case Iex_Const:
@@ -362,6 +697,16 @@ That doesn't seem flattened...\n");
   case Ist_LoadG:
     // Guarded load. This will load a value from memory, and write
     // it to a temp, but only if a condition returns true.
+    {
+      IRDirty* cpInfluence =
+        unsafeIRDirty_0_N(3,
+                          "copyInfluenceFromMemIf",
+                          VG_(fnptr_to_fnentry)(&copyInfluenceFromMemIf),
+                          mkIRExprVec_3(st->Ist.LoadG.details->addr,
+                                        mkU64(st->Ist.WrTmp.tmp),
+                                        st->Ist.LoadG.details->guard));
+      addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
+    }
     if (isFloat(sbOut->tyenv, st->Ist.LoadG.details->dst)){
       ALLOC(loadGInfo, "hg.loadGmalloc.1", 1, sizeof(LoadG_Info));
       // These are the lines we'd like to write. Unfortunately, we

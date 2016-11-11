@@ -39,6 +39,8 @@
 #include "hg_instrument.h"
 
 #include "include/hg_options.h"
+#include "runtime/hg_lci.h"
+
 #include "pub_tool_options.h"
 
 #include "pub_tool_clientstate.h"
@@ -149,6 +151,17 @@ static Bool hg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret) {
     break;
   case VG_USERREQ__FORCE_TRACK:
     forceEvaluateValue((Addr)arg[1]);
+
+    if (getMaskTemp(getMem(arg[1])->stem->branch.op->dest_tmp)){
+      VG_(printf)("Have influence bits at temp %lu.\n",
+                  getMem(arg[1])->stem->branch.op->dest_tmp);
+    } else {
+      VG_(printf)("Even that doesn't have influence bits!\n");
+    }
+
+    if (getMaskMem((Addr)arg[1])){
+      VG_(printf)("Have influence bits at %p.\n", (void*)arg[1]);
+    }
     break;
   case VG_USERREQ__FORCE_TRACKF:
     forceEvaluateValueF((Addr)arg[1]);
@@ -160,7 +173,8 @@ static Bool hg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret) {
         VG_(dmsg)("Can't mark a computation with no children!\n");
         break;
       }
-      markValueImportant(shadowVal);
+      VG_(printf)("Getting mask bits for addr %p\n", (void*)arg[1]);
+      markValueImportant(shadowVal, getMaskMem((Addr)arg[1]));
     }
     break;
   default:
