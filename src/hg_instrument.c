@@ -378,8 +378,7 @@ That doesn't seem flattened...\n");
           unsafeIRDirty_0_N(2,
                             "copyInfluenceFromMem",
                             VG_(fnptr_to_fnentry)(&copyInfluenceFromMem),
-                            mkIRExprVec_2(mkU64((uintptr_t)
-                                                expr->Iex.Load.addr),
+                            mkIRExprVec_2(expr->Iex.Load.addr,
                                           mkU64((uintptr_t)
                                                 st->Ist.WrTmp.tmp)));
 
