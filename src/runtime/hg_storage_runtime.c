@@ -1,4 +1,3 @@
-
 /*--------------------------------------------------------------------*/
 /*--- HerbGrind: a valgrind tool for Herbie   hg_storage_runtime.c ---*/
 /*--------------------------------------------------------------------*/
@@ -38,11 +37,6 @@
 #include "hg_runtime.h"
 #include "hg_lci.h"
 
-// This gets us a hash table data structure that's safe to use with
-// valgrind, so we can set up a memory map for shadowing values that
-// leave our workbench area.
-#include "pub_tool_hashtable.h"
-
 // This get's us the line number information so that we can figure out
 // if we're in client code.
 #include "pub_tool_debuginfo.h"
@@ -74,10 +68,10 @@
 //   maintain a vast array of shadow values for all of memory.
 //
 // This file is in major need of a refactor and rewrite.
-static ShadowLocation* localTemps[MAX_TEMPS];
-static size_t maxTempUsed = 0;
-static VgHashTable* globalMemory = NULL;
-static ShadowValue* threadRegisters[MAX_THREADS][MAX_REGISTERS];
+ShadowLocation* localTemps[MAX_TEMPS];
+size_t maxTempUsed = 0;
+VgHashTable* globalMemory = NULL;
+ShadowValue* threadRegisters[MAX_THREADS][MAX_REGISTERS];
 
 // fma and variants are the only libm function I can think of that
 // goes over two (float) args. If you change this, you'll also want to

@@ -36,12 +36,22 @@
 #include "../types/hg_shadowvals.h"
 #include "../types/hg_opinfo.h"
 
+// This gets us a hash table data structure that's safe to use with
+// valgrind, so we can set up a memory map for shadowing values that
+// leave our workbench area.
+#include "pub_tool_hashtable.h"
+
 // The maximum number of pre-instrumentation temporary values per
 // block we're willing to deal with.
 #define	MAX_TEMPS 1000
 // The maximum number of per-thread registers we'll account for.
 #define	MAX_REGISTERS 1000
 #define MAX_THREADS 16
+
+extern ShadowLocation* localTemps[MAX_TEMPS];
+extern size_t maxTempUsed;
+extern VgHashTable* globalMemory;
+extern ShadowValue* threadRegisters[MAX_THREADS][MAX_REGISTERS];
 
 // The functions that we'll insert into the program to move around
 // shadow values at run time.

@@ -80,6 +80,12 @@ void instrumentStatement(IRStmt* st, IRSB* sbOut, Addr stAddr, int opNum){
                             VG_(fnptr_to_fnentry)(&copyShadowTmptoTS),
                             mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
         addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+      } else {
+        addStore(sbOut,
+                 mkU64(0),
+                 &(threadRegisters
+                   [VG_(get_running_tid)()]
+                   [st->Ist.Put.offset]));
       }
       IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
       addLoad64(sbOut, &(tempInfluences[expr->Iex.RdTmp.tmp]), influence);
@@ -90,6 +96,11 @@ void instrumentStatement(IRStmt* st, IRSB* sbOut, Addr stAddr, int opNum){
                  [st->Ist.Put.offset]));
       break;
     case Iex_Const:
+      addStore(sbOut,
+               mkU64(0),
+               &(threadRegisters
+                 [VG_(get_running_tid)()]
+                 [st->Ist.Put.offset]));
       break;
     default:
       // This shouldn't happen in flattened IR.
@@ -135,23 +146,60 @@ That doesn't seem flattened...\n");
         addStore(sbOut,
                  IRExpr_RdTmp(influence),
                  IRExpr_RdTmp(destAddr));
-        if (!isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)) break;
-        ALLOC(cpinfo, "hg.copyShadowTmptoTSInfo.1", 1, sizeof(CpShadow_Info));
-        cpinfo->instr_addr = stAddr;
-        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
-        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+        if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
+          ALLOC(cpinfo, "hg.copyShadowTmptoTSInfo.1", 1, sizeof(CpShadow_Info));
+          cpinfo->instr_addr = stAddr;
+          cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+          cpinfo->src_idx = expr->Iex.RdTmp.tmp;
 
-        addStore(sbOut,
-                 indexExpr,
-                 &(cpinfo->dest_idx));
-        copyShadowLocation =
-          unsafeIRDirty_0_N(1, "copyShadowTmptoTS",
-                            VG_(fnptr_to_fnentry)(&copyShadowTmptoTS),
-                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+          addStore(sbOut,
+                   indexExpr,
+                   &(cpinfo->dest_idx));
+          copyShadowLocation =
+            unsafeIRDirty_0_N(1, "copyShadowTmptoTS",
+                              VG_(fnptr_to_fnentry)(&copyShadowTmptoTS),
+                              mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+          addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        } else {
+          IRTemp shadowDestAddr = newIRTemp(sbOut->tyenv, Ity_I64);
+          IRStmt* computeSDestAddr =
+            IRStmt_WrTmp(shadowDestAddr,
+                         IRExpr_Binop(Iop_Add64,
+                                      mkU64((uintptr_t)threadRegisters
+                                            [VG_(get_running_tid)()]),
+                                      indexExpr));
+          addStmtToIRSB(sbOut, computeSDestAddr);
+          addStore(sbOut,
+                   mkU64(0),
+                   computeSDestAddr);
+        }
       }
       break;
     case Iex_Const:
+      {
+        IRExpr* indexExpr =
+          // Calculate array_base + (ix + bias) %
+          // array_len at run time. This will give us
+          // the offset into the thread state at which
+          // the actual put is happening, so we can
+          // use that same offset for the shadow get.
+          mkArrayLookupExpr(st->Ist.PutI.details->descr->base,
+                            st->Ist.PutI.details->ix,
+                            st->Ist.PutI.details->bias,
+                            st->Ist.PutI.details->descr->nElems,
+                            sbOut);
+        IRTemp shadowDestAddr = newIRTemp(sbOut->tyenv, Ity_I64);
+        IRStmt* computeSDestAddr =
+          IRStmt_WrTmp(shadowDestAddr,
+                       IRExpr_Binop(Iop_Add64,
+                                    mkU64((uintptr_t)threadRegisters
+                                          [VG_(get_running_tid)()]),
+                                    indexExpr));
+        addStmtToIRSB(sbOut, computeSDestAddr);
+        addStore(sbOut,
+                 mkU64(0),
+                 computeSDestAddr);
+      }
       break;
     default:
       // This shouldn't happen in flattened IR.
@@ -590,9 +638,6 @@ That doesn't seem flattened...\n");
         return;
       }
       instrumentOp(sbOut, st->Ist.WrTmp.tmp, expr, stAddr, opNum);
-      addRuntimeMaskCheck(sbOut,
-                          &(tempInfluences[st->Ist.WrTmp.tmp]),
-                          "OP");
       break;
       // We don't have to do anything for constants, since a
       // constant isn't considered a float yet.
@@ -621,24 +666,24 @@ That doesn't seem flattened...\n");
                             mkIRExprVec_2(mkU64(expr->Iex.RdTmp.tmp),
                                           st->Ist.Store.addr));
         addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
-      if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
-        ALLOC(cpinfo, "hg.copyShadowTmptoMemInfo.1", 1, sizeof(CpShadow_Info));
-        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
-        cpinfo->instr_addr = stAddr;
-        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+        if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
+          ALLOC(cpinfo, "hg.copyShadowTmptoMemInfo.1", 1, sizeof(CpShadow_Info));
+          cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+          cpinfo->instr_addr = stAddr;
+          cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
 
-        addStore(sbOut,
-                 st->Ist.Store.addr,
-                 &(cpinfo->dest_idx));
+          addStore(sbOut,
+                   st->Ist.Store.addr,
+                   &(cpinfo->dest_idx));
 
-        copyShadowLocation =
-          unsafeIRDirty_0_N(1,
-                            "copyShadowTmptoMem",
-                            VG_(fnptr_to_fnentry)(&copyShadowTmptoMem),
-                            mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
-        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+          copyShadowLocation =
+            unsafeIRDirty_0_N(1,
+                              "copyShadowTmptoMem",
+                              VG_(fnptr_to_fnentry)(&copyShadowTmptoMem),
+                              mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
+          addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        }
       }
-                                                                        }
       break;
     case Iex_Const:
       break;
@@ -665,24 +710,22 @@ That doesn't seem flattened...\n");
                                           st->Ist.StoreG.details->addr,
                                           st->Ist.StoreG.details->guard));
         addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
-        if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
-          ALLOC(cpinfo, "hg.copyShadowTmptoMemGInfo.1", 1, sizeof(CpShadow_Info));
-          cpinfo->src_idx = expr->Iex.RdTmp.tmp;
-          cpinfo->instr_addr = stAddr;
-          cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+        ALLOC(cpinfo, "hg.copyShadowTmptoMemGInfo.1", 1, sizeof(CpShadow_Info));
+        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+        cpinfo->instr_addr = stAddr;
+        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
 
-          addStore(sbOut,
-                   st->Ist.StoreG.details->addr,
-                   &(cpinfo->dest_idx));
+        addStore(sbOut,
+                 st->Ist.StoreG.details->addr,
+                 &(cpinfo->dest_idx));
 
-          copyShadowLocation =
-            unsafeIRDirty_0_N(2,
-                              "copyShadowTmptoMemG",
-                              VG_(fnptr_to_fnentry)(&copyShadowTmptoMemG),
-                              mkIRExprVec_2(st->Ist.StoreG.details->guard,
-                                            mkU64((uintptr_t)cpinfo)));
-          addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
-        }
+        copyShadowLocation =
+          unsafeIRDirty_0_N(2,
+                            "copyShadowTmptoMemG",
+                            VG_(fnptr_to_fnentry)(&copyShadowTmptoMemG),
+                            mkIRExprVec_2(st->Ist.StoreG.details->guard,
+                                          mkU64((uintptr_t)cpinfo)));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
       }
       break;
     case Iex_Const:
