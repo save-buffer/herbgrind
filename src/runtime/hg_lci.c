@@ -34,10 +34,13 @@
 
 #include "pub_tool_libcbase.h"
 
+#define MAX_LIBM_ARGS 3
+
 InfluenceBits tempInfluences[MAX_TEMPS];
 UWord maxTempInfluencesUsed = 0;
 VgHashTable* memoryInfluences = NULL;
 InfluenceBits tsInfluences[MAX_THREADS][MAX_REGISTERS];
+InfluenceBits savedInfluences[MAX_LIBM_ARGS];
 
 typedef struct _MemEntry {
   struct _MemEntry* next;

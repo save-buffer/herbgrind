@@ -103,7 +103,8 @@ VG_REGPARM(1) void copyShadowTmptoTS(CpShadow_Info* info){
   ShadowLocation* loc = getTemp(info->src_idx);
   if (!running && loc != NULL) return;
   setLocTS(info->dest_idx, loc,
-           IRTypetoLocType(info->type), info->instr_addr);
+           IRTypetoLocType(info->type), info->instr_addr,
+           info->src_idx);
 
   if (loc != NULL &&
       print_moves){
@@ -305,7 +306,8 @@ ShadowValue* getTS(Addr index){
   return threadRegisters[VG_(get_running_tid)()][index];
 }
 
-void setLocTS(Addr index, ShadowLocation* newLocation, LocType move_type, Addr instr_addr){
+void setLocTS(Addr index, ShadowLocation* newLocation,
+              LocType move_type, Addr instr_addr, UWord src_temp){
   // Okay, so this is a weird bit of code, that fixes a very specific
   // problem. The problem is, the first time we hit a replaced
   // function call, we go through the linker to patch up the
@@ -353,11 +355,13 @@ void setLocTS(Addr index, ShadowLocation* newLocation, LocType move_type, Addr i
       // that has not yet determined it's a floating point value, so
       // doesn't have a shadow value.
       setSavedArg(argIndex, NULL);
+      savedInfluences[argIndex] = IB_ZERO;
     } else if (threadRegisters[VG_(get_running_tid)()][index] != NULL){
       // If we are in the linker code, and the value that we're
       // about to overwrite isn't null, then we want to save it in
       // our saved arg register.
       setSavedArg(argIndex, threadRegisters[VG_(get_running_tid)()][index]);
+      savedInfluences[argIndex] = getMaskTemp(src_temp);
     }
   }
   // Finally, actually do the overwrite.

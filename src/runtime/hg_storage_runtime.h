@@ -81,7 +81,8 @@ ShadowLocation* getLocMem(Addr index, LocType type);
 
 void setTS(Addr index, ShadowValue* newValue);
 ShadowValue* getTS(Addr index);
-void setLocTS(Addr index, ShadowLocation* newLocation, LocType move_type, Addr instr_addr);
+void setLocTS(Addr index, ShadowLocation* newLocation,
+              LocType move_type, Addr instr_addr, UWord src_temp);
 ShadowLocation* getLocTS(Addr index, LocType type);
 
 void setLoc__(Addr index, ShadowLocation* newLoc, LocType move_type,

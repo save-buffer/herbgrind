@@ -34,6 +34,8 @@
 #include "hg_storage_runtime.h"
 #include "pub_tool_hashtable.h"
 
+#define MAX_LIBM_ARGS 3
+
 typedef struct _InfluenceBits {
   UWord data[4];
 } InfluenceBits;
@@ -42,6 +44,7 @@ extern InfluenceBits tempInfluences[MAX_TEMPS];
 extern UWord maxTempInfluencesUsed;
 extern VgHashTable* memoryInfluences;
 extern InfluenceBits tsInfluences[MAX_THREADS][MAX_REGISTERS];
+extern InfluenceBits savedInfluences[MAX_LIBM_ARGS];
 
 InfluenceBits getMaskTemp(UWord temp);
 InfluenceBits getMaskMem(Addr addr);

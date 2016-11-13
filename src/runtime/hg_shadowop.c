@@ -40,6 +40,7 @@
 #include "hg_runtime.h"
 #include "hg_output.h"
 #include "hg_lci.h"
+#include "hg_print.h"
 
 #include "performance_analysis.h"
 

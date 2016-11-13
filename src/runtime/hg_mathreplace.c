@@ -46,6 +46,8 @@
 #include "hg_evaluate.h"
 #include "hg_runtime.h"
 #include "hg_storage_runtime.h"
+#include "hg_print.h"
+#include "hg_lci.h"
 #include "../types/hg_opinfo.h"
 #include "../types/hg_stemtea.h"
 #include "../include/hg_macros.h"
@@ -130,6 +132,7 @@ void performOp(OpType op, double* result, double* args){
   OpInfo_Entry* entry = VG_(HT_lookup)(callToOpInfoMap, callAddr);
   if (entry == NULL){
     Op_Info* callInfo = mkOp_Info(nargs, 0x0, callAddr, plain_opname, op_symbol);
+    callInfo->dest_tmp = MAX_TEMPS - 1;
     ALLOC(entry, "hg.opinfo_entry.1", 1, sizeof(OpInfo_Entry));
     entry->call_addr = callAddr;
     entry->info = callInfo;
@@ -329,6 +332,13 @@ void performOp(OpType op, double* result, double* args){
   // And finally, evaluate the error of the operation.
   evaluateOpError(res_shadow, *result, entry->info, mpfr_get_d(localResult, MPFR_RNDN), False);
 
+  // Handle LCI stuff
+  InfluenceBits resultBits = IB_ZERO;
+  for (int i = 0; i < nargs; ++i){
+    compoundAssignOr(&resultBits, getMaskMem((Addr)&(args[i])));
+  }
+  compoundAssignOr(&resultBits, getMaskTemp(entry->info->dest_tmp));
+  setMaskMem((Addr)result, resultBits);
   // If we're printing debug info about where values are flowing, let
   // the user know that we're putting the result of this operation in
   // memory.

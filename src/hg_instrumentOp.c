@@ -40,6 +40,7 @@ VgHashTable* opinfo_store;
 // result in the temporary at offset. opNum is a zero-based index of
 // which op this is in the current instruction translation.
 void instrumentOp(IRSB* sb, Int offset, IRExpr* expr, Addr opAddr, int opNum){
+  tl_assert(offset < MAX_TEMPS - 1);
   IRDirty* executeShadowOp;
   SizeT arg_size, result_size;
   IRType expected_type = typeOfIRTemp(sb->tyenv, offset);
