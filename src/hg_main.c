@@ -151,17 +151,6 @@ static Bool hg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret) {
     break;
   case VG_USERREQ__FORCE_TRACK:
     forceEvaluateValue((Addr)arg[1]);
-
-    if (getMaskTemp(getMem(arg[1])->stem->branch.op->dest_tmp)){
-      VG_(printf)("Have influence bits at temp %lu.\n",
-                  getMem(arg[1])->stem->branch.op->dest_tmp);
-    } else {
-      VG_(printf)("Even that doesn't have influence bits!\n");
-    }
-
-    if (getMaskMem((Addr)arg[1])){
-      VG_(printf)("Have influence bits at %p.\n", (void*)arg[1]);
-    }
     break;
   case VG_USERREQ__FORCE_TRACKF:
     forceEvaluateValueF((Addr)arg[1]);
