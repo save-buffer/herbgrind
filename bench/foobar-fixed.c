@@ -11,6 +11,9 @@ int main(int argc, char** argv){
   double b = foobar(1e16, 1, 0);
   double c = foobar(1, 0, 3);
 
-  printf("%e\n", (b / a) * c);
+  double d = (b / a) * c;
+  HERBGRIND_MARK_IMPORTANT(d);
+
+  printf("%e\n", d);
   HERBGRIND_END();
 }

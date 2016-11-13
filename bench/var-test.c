@@ -13,5 +13,7 @@ int main(int argc, char** argv){
   z3 = z1 + z2;
   x = add(4, 5);
   y = add(6, z3);
+  HERBGRIND_MARK_IMPORTANT(x);
+  HERBGRIND_MARK_IMPORTANT(y);
   HERBGRIND_END();
 }

@@ -11,5 +11,7 @@ int main(int argc, char** argv){
   HERBGRIND_BEGIN();
   x = addTwo(z + 2, 4);
   y = addTwo(5, 7);
+  HERBGRIND_MARK_IMPORTANT(x);
+  HERBGRIND_MARK_IMPORTANT(y);
   HERBGRIND_END();
 }

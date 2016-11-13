@@ -36,6 +36,7 @@ int main(int argc, char** argv){
     HERBGRIND_BEGIN();
     nrkj2 = iprod(r_kj, r_kj);
     nrkj = sqrt(nrkj2);
+    HERBGRIND_MARK_IMPORTANT(nrkj);
     HERBGRIND_END();
     printf("%e\n", nrkj);
   }

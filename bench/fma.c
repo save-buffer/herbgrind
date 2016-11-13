@@ -12,5 +12,6 @@ int main(int argc, char** argv){
   y = y1 + y1;
   z = z1 + z1;
   w = fma(x, y, z);
+  HERBGRIND_MARK_IMPORTANT(w);
   printf("%f\n", w);
 }
