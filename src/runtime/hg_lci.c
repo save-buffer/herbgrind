@@ -34,15 +34,15 @@
 
 #include "pub_tool_libcbase.h"
 
-UWord tempInfluences[MAX_TEMPS];
+InfluenceBits tempInfluences[MAX_TEMPS];
 UWord maxTempInfluencesUsed = 0;
 VgHashTable* memoryInfluences = NULL;
-UWord tsInfluences[MAX_THREADS][MAX_REGISTERS];
+InfluenceBits tsInfluences[MAX_THREADS][MAX_REGISTERS];
 
 typedef struct _MemEntry {
   struct _MemEntry* next;
   UWord addr;
-  UWord influence;
+  InfluenceBits influence;
 } MemEntry;
 
 void lciGlobalInit(){
@@ -52,12 +52,11 @@ void lciGlobalTeardown(){
   VG_(HT_destruct)(memoryInfluences, VG_(free));
 }
 void lciBlockTeardown(){
-  VG_(memset)(tempInfluences, 0, sizeof(UWord) * maxTempInfluencesUsed);
+  VG_(memset)(tempInfluences, 0, sizeof(InfluenceBits) * maxTempInfluencesUsed);
 }
 
 VG_REGPARM(2) void copyInfluenceToMem(UWord src_temp, Addr dest_mem){
-  UWord influence = tempInfluences[src_temp];
-  /* VG_(printf)("Setting from temp %lu\n", src_temp); */
+  InfluenceBits influence = tempInfluences[src_temp];
   setMaskMem(dest_mem, influence);
 }
 VG_REGPARM(3) void copyInfluenceToMemIf(UWord src_temp, Addr dest_mem,
@@ -69,13 +68,12 @@ VG_REGPARM(3) void copyInfluenceToMemIf(UWord src_temp, Addr dest_mem,
 VG_REGPARM(2) void copyInfluenceFromMem(Addr src_mem, UWord dest_temp){
   MemEntry* entry = VG_(HT_lookup)(memoryInfluences, src_mem);
   if (entry){
-    VG_(printf)("{%p}Copied non-zero influence from %p to temp %lu\n",
-                (void*)getCallAddr(),
-                (void*)src_mem, dest_temp);
+    /* VG_(printf)("{%p}Copied non-zero influence from %p to temp %lu\n", */
+    /*             (void*)getCallAddr(), */
+    /*             (void*)src_mem, dest_temp); */
     tempInfluences[dest_temp] = entry->influence;
   } else {
-    /* VG_(printf)("Couldn't find any influence at mem %p\n", (void*)src_mem); */
-    tempInfluences[dest_temp] = 0;
+    clearInfluenceBits(&(tempInfluences[dest_temp]));
   }
 }
 VG_REGPARM(3) void copyInfluenceFromMemIf(Addr src_mem, UWord dest_temp,
@@ -85,46 +83,71 @@ VG_REGPARM(3) void copyInfluenceFromMemIf(Addr src_mem, UWord dest_temp,
   }
 }
 
-UWord getMaskTemp(UWord temp){
+InfluenceBits getMaskTemp(UWord temp){
   return tempInfluences[temp];
 }
-UWord getMaskMem(Addr addr){
+InfluenceBits getMaskMem(Addr addr){
   MemEntry* entry = VG_(HT_lookup)(memoryInfluences, addr);
   if (entry){
     return entry->influence;
   } else {
-    return 0;
+    return IB_ZERO;
   }
 }
-void setMaskMem(Addr dest_mem, UWord influence){
+void setMaskMem(Addr dest_mem, InfluenceBits influence){
   MemEntry* entry = VG_(HT_lookup)(memoryInfluences, dest_mem);
-  if (influence && entry){
+  if (isNonZero(influence) && entry){
     entry->influence = influence;
-    VG_(printf)("{%p}Copied non-zero influence to %p\n",
-                (void*)getCallAddr(),
-                (void*)dest_mem);
+    /* VG_(printf)("{%p}Copied non-zero influence to %p\n", */
+    /*             (void*)getCallAddr(), */
+    /*             (void*)dest_mem); */
   } else if (entry){
-    entry->influence = 0;
-    VG_(printf)("{%p}Erased non-zero influence at %p\n",
-                (void*)getCallAddr(),
-                (void*)dest_mem);
+    clearInfluenceBits(&(entry->influence));
+    /* VG_(printf)("{%p}Erased non-zero influence at %p\n", */
+    /*             (void*)getCallAddr(), */
+    /*             (void*)dest_mem); */
     // Use this if we end up memory constrained.
     /* VG_(free)(VG_(HT_remove)(memoryInfluences, dest_mem)); */
-  } else if (influence){
+  } else if (isNonZero(influence)){
     ALLOC(entry, "memory influence entry", 1, sizeof(MemEntry));
     entry->addr = dest_mem;
     entry->influence = influence;
     VG_(HT_add_node)(memoryInfluences, entry);
-    VG_(printf)("{%p}Copied non-zero influence to %p\n",
-                (void*)getCallAddr(),
-                (void*)dest_mem);
+    /* VG_(printf)("{%p}Copied non-zero influence to %p\n", */
+    /*             (void*)getCallAddr(), */
+    /*             (void*)dest_mem); */
   }
 }
 VG_REGPARM(2) void printIfBitsNonZero(Addr bitsLoc, char* label){
-  if (*(UWord*)bitsLoc){
+  if (isNonZero(*(InfluenceBits*)bitsLoc)){
     VG_(printf)("[%s at %p] Found non-zero influence bits at %p\n",
                 label,
                 (void*)getCallAddr(),
                 (void*)bitsLoc);
   }
+}
+
+void setBitOn(InfluenceBits* bits, int bits_index){
+  bits->data[bits_index / (sizeof(UWord) * 8)] |= 1 << (bits_index % (sizeof(UWord) * 8));
+}
+Bool checkBitOn(InfluenceBits bits, int bits_index){
+  return ((bits.data[bits_index / (sizeof(UWord) * 8)] & (1 << (bits_index % (sizeof(UWord) * 8)))) != 0);
+}
+void compoundAssignOr(InfluenceBits* dest, InfluenceBits other){
+  for (int i = 0; i < 4; ++i){
+    dest->data[i] |= other.data[i];
+  }
+}
+void clearInfluenceBits(InfluenceBits* bits){
+  for (int i = 0; i < 4; ++i){
+    bits->data[i] = 0;
+  }
+}
+Bool isNonZero(InfluenceBits bits){
+  for (int i = 0; i < 4; ++i){
+    if (bits.data[i] != 0){
+      return True;
+    }
+  }
+  return False;
 }

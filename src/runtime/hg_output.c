@@ -28,7 +28,6 @@
 */
 #include "hg_output.h"
 #include "hg_runtime.h"
-#include "hg_lci.h"
 #include "../types/hg_stemtea.h"
 #include "../types/hg_queue.h"
 #include "pub_tool_libcassert.h"
@@ -66,7 +65,7 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr){
   return mark;
 }
 
-void markValueImportant(ShadowValue* shadowVal, UWord lciBits){
+void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits){
   if (marks == NULL){
     marks = VG_(newXA)(VG_(malloc), "op tracker",
                        VG_(free), sizeof(OutputMark*));
@@ -84,11 +83,14 @@ void markValueImportant(ShadowValue* shadowVal, UWord lciBits){
     }
   }
   if (curMark == NULL){
-    curMark = mkMark(shadowVal->stem->branch.op, curAddr);
+    if (shadowVal){
+      curMark = mkMark(shadowVal->stem->branch.op, curAddr);
+    } else {
+      curMark = mkMark(NULL, curAddr);
+    }
     VG_(addToXA)(marks, &curMark);
   }
-  curMark->lciBits |= lciBits;
-  VG_(printf)("Marking output important with value %p.\n", shadowVal);
+  compoundAssignOr(&(curMark->lciBits), lciBits);
 
   for (int i = 0; i < VG_(sizeXA)(shadowVal->tracked_influences); ++i){
     Op_Info* new_influence =
@@ -102,10 +104,9 @@ void trackValueExpr(ShadowValue* val){
   dedupAdd(val->tracked_influences, val->stem->branch.op);
 
   int tableIndex = addInfluenceToTableDedup(val->stem->branch.op);
-  uint64_t mask = 1 << tableIndex;
-  tempInfluences[val->stem->branch.op->dest_tmp] |= mask;
-
-  VG_(printf)("Tracking value %p.\n", val);
+  InfluenceBits mask;
+  setBitOn(&mask, tableIndex);
+  compoundAssignOr(&(tempInfluences[val->stem->branch.op->dest_tmp]), mask);
 
   if (report_all){
     markValueImportant(val, getMaskTemp(val->stem->branch.op->dest_tmp));
@@ -270,8 +271,8 @@ void writeReport(const char* filename){
       VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
                     "   According to lightweight complete influences system:\n");
     VG_(write)(file_d, buf, entry_len);
-    for(int j = 0; j < 64; ++j){
-      if (mark->lciBits & ((uint64_t)1 << j)){
+    for(int j = 0; j < sizeof(InfluenceBits) * 8; ++j){
+      if (checkBitOn(mark->lciBits, j)){
         writeEntry(influencesTable[j], file_d);
       }
     }
@@ -338,7 +339,7 @@ int addInfluenceToTableDedup(Op_Info* influence){
       break;
     }
   }
-  tl_assert2(i < 64, "Too many influences added to table!!!\n");
+  tl_assert2(i < 64 * 4, "Too many influences added to table!!!\n");
   influencesTable[i] = influence;
   return i;
 }

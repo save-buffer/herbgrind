@@ -26,17 +26,25 @@
 
    The GNU General Public License is contained in the file COPYING.
 */
+
+#ifndef _HG_LCI_H
+#define _HG_LCI_H
+
 #include "pub_tool_basics.h"
 #include "hg_storage_runtime.h"
 #include "pub_tool_hashtable.h"
 
-extern UWord tempInfluences[MAX_TEMPS];
+typedef struct _InfluenceBits {
+  UWord data[4];
+} InfluenceBits;
+
+extern InfluenceBits tempInfluences[MAX_TEMPS];
 extern UWord maxTempInfluencesUsed;
 extern VgHashTable* memoryInfluences;
-extern UWord tsInfluences[MAX_THREADS][MAX_REGISTERS];
+extern InfluenceBits tsInfluences[MAX_THREADS][MAX_REGISTERS];
 
-UWord getMaskTemp(UWord temp);
-UWord getMaskMem(Addr addr);
+InfluenceBits getMaskTemp(UWord temp);
+InfluenceBits getMaskMem(Addr addr);
 
 void lciGlobalInit(void);
 void lciGlobalTeardown(void);
@@ -49,4 +57,14 @@ VG_REGPARM(3) void copyInfluenceFromMemIf(Addr src_mem, UWord dest_temp,
                                           UWord cond);
 VG_REGPARM(2) void printIfBitsNonZero(Addr bitsLoc, char* label);
 
-void setMaskMem(Addr addr, UWord influence);
+void setMaskMem(Addr addr, InfluenceBits influence);
+
+void setBitOn(InfluenceBits* bits, int bits_index);
+Bool checkBitOn(InfluenceBits bits, int bits_index);
+void compoundAssignOr(InfluenceBits* dest, InfluenceBits other);
+void clearInfluenceBits(InfluenceBits* bits);
+Bool isNonZero(InfluenceBits bits);
+
+#define IB_ZERO ((InfluenceBits){0})
+
+#endif

@@ -32,11 +32,12 @@
 
 #include "pub_tool_basics.h"
 #include "../types/hg_shadowvals.h"
+#include "hg_lci.h"
 
 typedef struct _OutputMark {
   Op_Info* op;
   Addr instrAddr;
-  UWord lciBits;
+  InfluenceBits lciBits;
   UInt src_line;
   const HChar* src_filename;
   const HChar* fnname;
@@ -46,7 +47,7 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr);
 
 void dedupAdd(XArray* array, void* item);
 
-void markValueImportant(ShadowValue* shadowVal, UWord lciBits);
+void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits);
 void propagateInfluences(ShadowValue* dest, int nargs, ...);
 void trackValueExpr(ShadowValue* val);
 int addInfluenceToTableDedup(Op_Info* influence);
