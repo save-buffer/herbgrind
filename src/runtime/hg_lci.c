@@ -128,10 +128,10 @@ VG_REGPARM(2) void printIfBitsNonZero(Addr bitsLoc, char* label){
 }
 
 void setBitOn(InfluenceBits* bits, int bits_index){
-  bits->data[bits_index / (sizeof(UWord) * 8)] |= 1 << (bits_index % (sizeof(UWord) * 8));
+  bits->data[bits_index / 64] |= ((uint64_t)1) << (bits_index % 64);
 }
 Bool checkBitOn(InfluenceBits bits, int bits_index){
-  return ((bits.data[bits_index / (sizeof(UWord) * 8)] & (1 << (bits_index % (sizeof(UWord) * 8)))) != 0);
+  return ((bits.data[bits_index / 64] & (((uint64_t)1) << (bits_index % 64))) != 0);
 }
 void compoundAssignOr(InfluenceBits* dest, InfluenceBits other){
   for (int i = 0; i < 4; ++i){

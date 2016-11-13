@@ -42,7 +42,7 @@
 #include "pub_tool_threadstate.h"
 
 XArray* marks;
-Op_Info* influencesTable[64];
+Op_Info* influencesTable[128];
 
 // How many characters are going to be allowed in each entry.
 #define ENTRY_BUFFER_SIZE 2048
@@ -106,9 +106,7 @@ void trackValueExpr(ShadowValue* val){
   dedupAdd(val->tracked_influences, val->stem->branch.op);
 
   int tableIndex = addInfluenceToTableDedup(val->stem->branch.op);
-  InfluenceBits mask;
-  setBitOn(&mask, tableIndex);
-  compoundAssignOr(&(tempInfluences[val->stem->branch.op->dest_tmp]), mask);
+  setBitOn(&(tempInfluences[val->stem->branch.op->dest_tmp]), tableIndex);
 
   if (report_all){
     markValueImportant(val, getMaskTemp(val->stem->branch.op->dest_tmp));
