@@ -44,28 +44,28 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
                      Bool force){
   if (!running) return;
 
-  double oldMaxLocal = opinfo->evalinfo.max_local;
-  double oldMaxError = opinfo->evalinfo.max_error;
+  double bitsError =
+    evaluateError_bare(shadowVal, &(opinfo->evalinfo), actualVal);
+  double bitsLocal =
+    evaluateError_local(shadowVal, &(opinfo->evalinfo), localResult);
 
-  evaluateError_bare(shadowVal, &(opinfo->evalinfo), actualVal);
-  evaluateError_local(shadowVal, &(opinfo->evalinfo), localResult);
-
-  if (report_exprs &&
-      ((opinfo->evalinfo.max_local >= error_threshold &&
-        opinfo->evalinfo.max_local > oldMaxLocal &&
-        localize) ||
-       (opinfo->evalinfo.max_error >= error_threshold &&
-        opinfo->evalinfo.max_error > oldMaxError &&
-        !localize) ||
-       force)){
-    updateTea(opinfo, shadowVal->stem);
-  }
-  if ((opinfo->evalinfo.max_error >= error_threshold &&
-       oldMaxError < error_threshold && !localize) ||
-      (opinfo->evalinfo.max_local >= error_threshold &&
-       oldMaxLocal < error_threshold && localize) ||
+  /* if (report_exprs && */
+  /*     ((opinfo->evalinfo.max_local >= error_threshold && */
+  /*       opinfo->evalinfo.max_local > oldMaxLocal && */
+  /*       localize) || */
+  /*      (opinfo->evalinfo.max_error >= error_threshold && */
+  /*       opinfo->evalinfo.max_error > oldMaxError && */
+  /*       !localize) || */
+  /*      force)){ */
+  /*   updateTea(opinfo, shadowVal->stem); */
+  /* } */
+  if ((bitsError >= error_threshold && !localize) ||
+      (bitsLocal >= error_threshold && localize) ||
       force){
     trackValueExpr(shadowVal, actualVal);
+    if (report_exprs){
+      updateTea(opinfo, shadowVal->stem);
+    }
   }
 
   if (print_errors || print_errors_long){
@@ -80,9 +80,9 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
   }
 }
 
-void evaluateError_bare(ShadowValue* shadowVal,
-                        Eval_Info* evalinfo,
-                        double computedValue){
+double evaluateError_bare(ShadowValue* shadowVal,
+                          Eval_Info* evalinfo,
+                          double computedValue){
   // We're going to do the log in mpfr since that way we don't have to
   // worry about pulling in the normal math library, which is
   // non-trivial in a valgrind tool. But, we can't get ulps from an
@@ -141,11 +141,13 @@ void evaluateError_bare(ShadowValue* shadowVal,
     VG_(printf)("The bits error of that operation was: %f (%llu ulps).\n",
                 bitsError, ulpsError);
   }
+
+  return bitsError;
 }
 
-void evaluateError_local(ShadowValue* shadowVal,
-                         Eval_Info* evalinfo,
-                         double localResult){
+double evaluateError_local(ShadowValue* shadowVal,
+                           Eval_Info* evalinfo,
+                           double localResult){
   // We're going to do the log in mpfr since that way we don't have to
   // worry about pulling in the normal math library, which is
   // non-trivial in a valgrind tool. But, we can't get ulps from an
@@ -180,6 +182,7 @@ void evaluateError_local(ShadowValue* shadowVal,
     VG_(printf)("Local error was: %f (%llu ulps).\n",
                 bitsLocal, ulpsLocal);
   }
+  return bitsLocal;
 }
 
 void evaluateOpError_helper(ShadowValue* shadowVal, LocType bytestype, int el_index, Op_Info* opinfo, double localResult){

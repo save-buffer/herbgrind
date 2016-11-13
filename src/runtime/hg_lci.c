@@ -34,8 +34,6 @@
 
 #include "pub_tool_libcbase.h"
 
-#define MAX_LIBM_ARGS 3
-
 InfluenceBits tempInfluences[MAX_TEMPS];
 UWord maxTempInfluencesUsed = 0;
 VgHashTable* memoryInfluences = NULL;
