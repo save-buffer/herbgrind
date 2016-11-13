@@ -158,11 +158,7 @@ static Bool hg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret) {
   case VG_USERREQ__MARK_IMPORTANT:
     if (!report_all){
       ShadowValue* shadowVal = getMem((Addr)arg[1]);
-      if (shadowVal == NULL || shadowVal->stem->type == Node_Leaf){
-        VG_(dmsg)("Can't mark a computation with no children!\n");
-        break;
-      }
-      VG_(printf)("Getting mask bits for addr %p\n", (void*)arg[1]);
+      /* VG_(printf)("Getting mask bits for addr %p\n", (void*)arg[1]); */
       markValueImportant(shadowVal, getMaskMem((Addr)arg[1]));
     }
     break;
