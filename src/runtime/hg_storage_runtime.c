@@ -429,23 +429,23 @@ LocType IRTypetoLocType(IRType ty){
   switch(ty){
   case Ity_I32:
   case Ity_F32:
+  case Ity_D32:
     return Lt_Float;
   case Ity_I64:
   case Ity_F64:
+  case Ity_D64:
     return Lt_Double;
   case Ity_V128:
-    return Lt_Doublex2;
   case Ity_D128:
   case Ity_F128:
+  case Ity_I128:
+    return Lt_Doublex2;
   case Ity_V256:
   case Ity_INVALID:
   case Ity_I1:
   case Ity_I8:
   case Ity_I16:
-  case Ity_I128:
   case Ity_F16:
-  case Ity_D32:
-  case Ity_D64:
   default:
     VG_(dmsg)("Unrecognized IRType!\n");
     return 0;
