@@ -54,18 +54,22 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr){
   ALLOC(mark, "output mark", 1, sizeof(OutputMark));
   mark->op = op;
 
-  mark->instrAddr = curAddr;
+  mark->debuginfo.addr = curAddr;
   tl_assert2(VG_(get_filename_linenum)(curAddr,
-                                       &(mark->src_filename),
+                                       &(mark->debuginfo.src_filename),
                                        NULL,
-                                       &(mark->src_line)) &&
-             VG_(get_fnname)(curAddr, &(mark->fnname)),
+                                       &(mark->debuginfo.src_line)) &&
+             VG_(get_fnname)(curAddr, &(mark->debuginfo.fnname)),
              "Couldn't find debug info! Please compile with debug info.");
+
+  mark->influences = VG_(newXA)(VG_(malloc), "influence tracker",
+                                VG_(free), sizeof(Op_Info*));
 
   return mark;
 }
 
-void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits){
+void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits,
+                        double computedValue){
   if (marks == NULL){
     marks = VG_(newXA)(VG_(malloc), "op tracker",
                        VG_(free), sizeof(OutputMark*));
@@ -77,7 +81,8 @@ void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits){
   // data.
   OutputMark* curMark = NULL;
   for (int i = 0; i < VG_(sizeXA)(marks); ++i){
-    if ((*(OutputMark**)VG_(indexXA)(marks, i))->instrAddr == curAddr){
+    if ((*(OutputMark**)VG_(indexXA)(marks, i))->debuginfo.addr ==
+        curAddr){
       curMark = *(OutputMark**)VG_(indexXA)(marks, i);
       break;
     }
@@ -96,11 +101,12 @@ void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits){
     for (int i = 0; i < VG_(sizeXA)(shadowVal->tracked_influences); ++i){
       Op_Info* new_influence =
         *(Op_Info**)VG_(indexXA)(shadowVal->tracked_influences, i);
-      dedupAdd(curMark->op->influences, new_influence);
+      dedupAdd(curMark->influences, new_influence);
     }
+    evaluateError_bare(shadowVal, &(curMark->evalinfo), computedValue);
   }
 }
-void trackValueExpr(ShadowValue* val){
+void trackValueExpr(ShadowValue* val, double computedValue){
   tl_assert2(val->stem->type == Node_Branch,
              "Tried to track a leaf value!");
   dedupAdd(val->tracked_influences, val->stem->branch.op);
@@ -109,7 +115,8 @@ void trackValueExpr(ShadowValue* val){
   setBitOn(&(tempInfluences[val->stem->branch.op->dest_tmp]), tableIndex);
 
   if (report_all){
-    markValueImportant(val, getMaskTemp(val->stem->branch.op->dest_tmp));
+    markValueImportant(val, getMaskTemp(val->stem->branch.op->dest_tmp),
+                       computedValue);
   }
 }
 void propagateInfluences(ShadowValue* dest, int nargs, ...){
@@ -224,20 +231,20 @@ void writeReport(const char* filename){
       if (human_readable){
         entry_len = VG_(snprintf)(buf, ENTRY_BUFFER_SIZE,
                                   "Result in %s at %s:%u (address %lX)\n",
-                                  mark->fnname,
-                                  mark->src_filename,
-                                  mark->src_line,
-                                  mark->instrAddr);
+                                  mark->debuginfo.fnname,
+                                  mark->debuginfo.src_filename,
+                                  mark->debuginfo.src_line,
+                                  mark->debuginfo.addr);
         if (mark->op != NULL){
           entry_len += VG_(snprintf)(buf + entry_len,
                                      ENTRY_BUFFER_SIZE - entry_len,
                                      "%f bits average error\n"
                                      "%f bits max error\n"
                                      "Aggregated over %lu instances\n",
-                                     mark->op->evalinfo.total_error /
-                                     mark->op->evalinfo.num_calls,
-                                     mark->op->evalinfo.max_error,
-                                     mark->op->evalinfo.num_calls);
+                                     mark->evalinfo.total_error /
+                                     mark->evalinfo.num_calls,
+                                     mark->evalinfo.max_error,
+                                     mark->evalinfo.num_calls);
         }
         entry_len += VG_(snprintf)(buf + entry_len,
                                    ENTRY_BUFFER_SIZE - entry_len,
@@ -249,20 +256,20 @@ void writeReport(const char* filename){
                                   "  (filename \"%s\")\n"
                                   "  (line-num %u)\n"
                                   "  (instr-addr %lX)\n",
-                                  mark->fnname,
-                                  mark->src_filename,
-                                  mark->src_line,
-                                  mark->instrAddr);
+                                  mark->debuginfo.fnname,
+                                  mark->debuginfo.src_filename,
+                                  mark->debuginfo.src_line,
+                                  mark->debuginfo.addr);
         if (mark->op != NULL){
           entry_len += VG_(snprintf)(buf + entry_len,
                                      ENTRY_BUFFER_SIZE - entry_len,
                                      "  (avg-error %f)\n"
                                      "  (max-error %f)\n"
                                      "  (num-calls %lu)\n",
-                                     mark->op->evalinfo.total_error /
-                                     mark->op->evalinfo.num_calls,
-                                     mark->op->evalinfo.max_error,
-                                     mark->op->evalinfo.num_calls);
+                                     mark->evalinfo.total_error /
+                                     mark->evalinfo.num_calls,
+                                     mark->evalinfo.max_error,
+                                     mark->evalinfo.num_calls);
         }
         entry_len += VG_(snprintf)(buf + entry_len,
                                    ENTRY_BUFFER_SIZE - entry_len,
@@ -290,7 +297,7 @@ void writeReport(const char* filename){
       // Clear the subexpressions of each expression so that we don't
       // print both an expression and one of it's subexpressions if
       // there are multiple sources of error.
-      XArray* influences = mark->op->influences;
+      XArray* influences = mark->influences;
       if (report_exprs){
         for (int j = VG_(sizeXA)(influences) - 1; j >= 0; --j){
           Op_Info* influence = *(Op_Info**)VG_(indexXA)(influences, j);
@@ -385,7 +392,7 @@ void writeEntry(Op_Info* opinfo, Int file_d){
                       opinfo->debuginfo.fnname,
                       opinfo->debuginfo.src_filename,
                       opinfo->debuginfo.src_line,
-                      opinfo->debuginfo.op_addr,
+                      opinfo->debuginfo.addr,
                       opinfo->evalinfo.total_error /
                       opinfo->evalinfo.num_calls,
                       opinfo->evalinfo.max_error,
@@ -407,7 +414,7 @@ void writeEntry(Op_Info* opinfo, Int file_d){
                       opinfo->debuginfo.fnname,
                       opinfo->debuginfo.src_filename,
                       opinfo->debuginfo.src_line,
-                      opinfo->debuginfo.op_addr,
+                      opinfo->debuginfo.addr,
                       opinfo->evalinfo.total_error /
                       opinfo->evalinfo.num_calls,
                       opinfo->evalinfo.max_error,
@@ -426,7 +433,7 @@ void writeEntry(Op_Info* opinfo, Int file_d){
                       opinfo->debuginfo.fnname,
                       opinfo->debuginfo.src_filename,
                       opinfo->debuginfo.src_line,
-                      opinfo->debuginfo.op_addr,
+                      opinfo->debuginfo.addr,
                       opinfo->evalinfo.total_error /
                       opinfo->evalinfo.num_calls,
                       opinfo->evalinfo.max_error,
@@ -446,7 +453,7 @@ void writeEntry(Op_Info* opinfo, Int file_d){
                       opinfo->debuginfo.fnname,
                       opinfo->debuginfo.src_filename,
                       opinfo->debuginfo.src_line,
-                      opinfo->debuginfo.op_addr,
+                      opinfo->debuginfo.addr,
                       opinfo->evalinfo.total_error /
                       opinfo->evalinfo.num_calls,
                       opinfo->evalinfo.max_error,

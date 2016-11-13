@@ -38,7 +38,7 @@ void getOpDebug_Info(Addr op_addr,
                      const HChar* plain_opname,
                      const HChar* symbol,
                      OpDebug_Info* result){
-  result->op_addr = op_addr;
+  result->addr = op_addr;
   result->plain_opname = plain_opname;
   result->symbol = symbol;
   if (VG_(get_filename_linenum)(op_addr,
@@ -60,9 +60,6 @@ Op_Info* mkOp_Info(SizeT arity, IROp op, Addr opAddr,
   result->nargs = arity;
   result->op = op;
   getOpDebug_Info(opAddr, name, symbol, &(result->debuginfo));
-
-  result->influences = VG_(newXA)(VG_(malloc), "op tracker",
-                                  VG_(free), sizeof(Op_Info*));
 
   /* ALLOC(result->evalinfo.regimes_data, "regimes data", arity, sizeof(double*)); */
   /* for(int i = 0; i < arity; ++i){ */

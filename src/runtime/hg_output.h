@@ -36,20 +36,21 @@
 
 typedef struct _OutputMark {
   Op_Info* op;
-  Addr instrAddr;
   InfluenceBits lciBits;
-  UInt src_line;
-  const HChar* src_filename;
-  const HChar* fnname;
+  XArray* influences;
+  OpDebug_Info debuginfo;
+  Eval_Info evalinfo;
 } OutputMark;
 
 OutputMark* mkMark(Op_Info* op, Addr curAddr);
 
 void dedupAdd(XArray* array, void* item);
 
-void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits);
+void markValueImportant(ShadowValue* shadowVal,
+                        InfluenceBits lciBits,
+                        double computedValue);
 void propagateInfluences(ShadowValue* dest, int nargs, ...);
-void trackValueExpr(ShadowValue* val);
+void trackValueExpr(ShadowValue* val, double computedValue);
 int addInfluenceToTableDedup(Op_Info* influence);
 
 void clearInfluence(Op_Info* opinfo, XArray* influences);

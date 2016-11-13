@@ -159,7 +159,8 @@ static Bool hg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret) {
     if (!report_all){
       ShadowValue* shadowVal = getMem((Addr)arg[1]);
       /* VG_(printf)("Getting mask bits for addr %p\n", (void*)arg[1]); */
-      markValueImportant(shadowVal, getMaskMem((Addr)arg[1]));
+      markValueImportant(shadowVal, getMaskMem((Addr)arg[1]),
+                         *(double*)arg[1]);
     }
     break;
   default:

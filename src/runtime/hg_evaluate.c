@@ -42,77 +42,78 @@
 void evaluateOpError(ShadowValue* shadowVal, double actualVal,
                      Op_Info* opinfo, double localResult,
                      Bool force){
+  if (!running) return;
+
+  double oldMaxLocal = opinfo->evalinfo.max_local;
+  double oldMaxError = opinfo->evalinfo.max_error;
+
+  evaluateError_bare(shadowVal, &(opinfo->evalinfo), actualVal);
+  evaluateError_local(shadowVal, &(opinfo->evalinfo), localResult);
+
+  if (report_exprs &&
+      ((opinfo->evalinfo.max_local >= error_threshold &&
+        opinfo->evalinfo.max_local > oldMaxLocal &&
+        localize) ||
+       (opinfo->evalinfo.max_error >= error_threshold &&
+        opinfo->evalinfo.max_error > oldMaxError &&
+        !localize) ||
+       force)){
+    updateTea(opinfo, shadowVal->stem);
+  }
+  if ((opinfo->evalinfo.max_error >= error_threshold &&
+       oldMaxError < error_threshold && !localize) ||
+      (opinfo->evalinfo.max_local >= error_threshold &&
+       oldMaxLocal < error_threshold && localize) ||
+      force){
+    trackValueExpr(shadowVal, actualVal);
+  }
+
+  if (print_errors || print_errors_long){
+    VG_(printf)("(Operation at %lX)\n", opinfo->debuginfo.addr);
+    if (opinfo->debuginfo.src_filename != NULL)
+      VG_(printf)("%s at %s:%u in %s\n",
+                  opinfo->debuginfo.plain_opname,
+                  opinfo->debuginfo.src_filename,
+                  opinfo->debuginfo.src_line,
+                  opinfo->debuginfo.fnname);
+    VG_(printf)("\n");
+  }
+}
+
+void evaluateError_bare(ShadowValue* shadowVal,
+                        Eval_Info* evalinfo,
+                        double computedValue){
   // We're going to do the log in mpfr since that way we don't have to
   // worry about pulling in the normal math library, which is
   // non-trivial in a valgrind tool. But, we can't get ulps from an
   // mpfr value, so we have to first bring both values into doubles,
   // get their ulps, move the ulps into MPFR, get the +1log (which is
   // the number of bits), then finally convert that to double.
-  unsigned long long ulpsError, ulpsLocal;
-  double bitsError, bitsLocal, shadowValD;
-  mpfr_t ulpsErrorM, bitsErrorM, ulpsLocalM, bitsLocalM;
-
-  if (!running) return;
+  unsigned long long ulpsError;
+  double bitsError, shadowValD;
+  mpfr_t ulpsErrorM, bitsErrorM;
 
   shadowValD = mpfr_get_d(shadowVal->value, MPFR_RNDN);
 
-  ulpsError = ulpd(shadowValD, actualVal);
-  ulpsLocal = ulpd(shadowValD, localResult);
+  ulpsError = ulpd(shadowValD, computedValue);
   // To calculate bits error, we take the log2 of the ulps error +
   // 1. This means that 0 ulps (same value) has log2(1) = 0 bits of
   // error, 1 ulp (values that are as close as they can be but still
   // different) has log2(2) = 1 bit of error, and we scale
   // logarithmically from there.
-  mpfr_inits2(precision, ulpsErrorM, ulpsLocalM, NULL);
+  mpfr_init2(ulpsErrorM, precision);
   mpfr_set_ui(ulpsErrorM, (unsigned long int)(ulpsError + 1), MPFR_RNDN);
-  mpfr_set_ui(ulpsLocalM, (unsigned long int)(ulpsLocal + 1), MPFR_RNDN);
-  mpfr_inits2(64, bitsErrorM, bitsLocalM, NULL);
+  mpfr_init2(bitsErrorM, 64);
   mpfr_log2(bitsErrorM, ulpsErrorM, MPFR_RNDN);
-  mpfr_log2(bitsLocalM, ulpsLocalM, MPFR_RNDN);
   bitsError = mpfr_get_d(bitsErrorM, MPFR_RNDN);
-  bitsLocal = mpfr_get_d(bitsLocalM, MPFR_RNDN);
 
-  mpfr_clears(ulpsErrorM, bitsErrorM, ulpsLocalM, bitsLocalM, NULL);
+  mpfr_clears(ulpsErrorM, bitsErrorM, NULL);
 
-  if (report_exprs &&
-      ((bitsLocal >= error_threshold && bitsLocal > opinfo->evalinfo.max_local && localize) ||
-       (bitsError >= error_threshold && bitsError > opinfo->evalinfo.max_error && !localize) ||
-       force)){
-    updateTea(opinfo, shadowVal->stem);
+  if (bitsError > evalinfo->max_error){
+    evalinfo->max_error = bitsError;
   }
-  // Update the persistent op record
-  if (bitsError > opinfo->evalinfo.max_error){
-    // Update the max error, since the error of this operation
-    // instance was greater than any error this operation has seen before.
-    opinfo->evalinfo.max_error = bitsError;
-    // This tests whether we didnt want to track it before, but do
-    // now. If that's the case, we'll start tracking it.
-    if (opinfo->evalinfo.max_error < error_threshold &&
-        bitsError >= error_threshold && !localize){
-      trackValueExpr(shadowVal);
-    } else if (force){
-      trackValueExpr(shadowVal);
-    }
-  }
-  if (bitsLocal > opinfo->evalinfo.max_local){
-    // This tests whether we didnt want to track it before, but do
-    // now. If that's the case, we'll start tracking it.
-    if (opinfo->evalinfo.max_local < error_threshold &&
-        bitsLocal >= error_threshold && localize){
-      trackValueExpr(shadowVal);
-    } else if (force){
-      trackValueExpr(shadowVal);
-    }
-    // Update the max local error, since the local error of this
-    // operation instance was greater than any local error this
-    // operation has seen before.
-    opinfo->evalinfo.max_local = bitsLocal;
-  } else if (force){
-    trackValueExpr(shadowVal);
-  }
-  opinfo->evalinfo.total_error += bitsError;
-  opinfo->evalinfo.total_local += bitsLocal;
-  opinfo->evalinfo.num_calls++;
+  evalinfo->total_error += bitsError;
+  evalinfo->num_calls++;
 
   // For printing
   if (print_errors_long || print_errors){
@@ -125,34 +126,59 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
       VG_(printf)("The shadowed val is %se%ld, "
                   "and the actual (computed) val is ",
                   shadowValstr, shadowValexpt);
-      printFloat(actualVal);
-      VG_(printf)("\nThe locally approximate value is ");
-      printFloat(localResult);
-      VG_(printf)(".\n\n");
+      printFloat(computedValue);
+      VG_(printf)(".\n");
       mpfr_free_str(shadowValstr);
     }
     else if (print_errors){
       VG_(printf)("The shadowed val is ");
       printFloat(shadowValD);
       VG_(printf)(", and the actual (computed) val is ");
-      printFloat(actualVal);
-      VG_(printf)(".\nThe locally approximate value is ");
-      printFloat(localResult);
+      printFloat(computedValue);
       VG_(printf)(".\n");
     }
   
     VG_(printf)("The bits error of that operation was: %f (%llu ulps).\n",
                 bitsError, ulpsError);
+  }
+}
+
+void evaluateError_local(ShadowValue* shadowVal,
+                         Eval_Info* evalinfo,
+                         double localResult){
+  // We're going to do the log in mpfr since that way we don't have to
+  // worry about pulling in the normal math library, which is
+  // non-trivial in a valgrind tool. But, we can't get ulps from an
+  // mpfr value, so we have to first bring both values into doubles,
+  // get their ulps, move the ulps into MPFR, get the +1log (which is
+  // the number of bits), then finally convert that to double.
+  unsigned long long ulpsLocal;
+  double bitsLocal, shadowValD;
+
+  mpfr_t ulpsLocalM, bitsLocalM;
+
+  shadowValD = mpfr_get_d(shadowVal->value, MPFR_RNDN);
+  ulpsLocal = ulpd(shadowValD, localResult);
+
+  mpfr_init2(ulpsLocalM, precision);
+  mpfr_set_ui(ulpsLocalM, (unsigned long int)(ulpsLocal + 1), MPFR_RNDN);
+  mpfr_init2(bitsLocalM, 64);
+  mpfr_log2(bitsLocalM, ulpsLocalM, MPFR_RNDN);
+  bitsLocal = mpfr_get_d(bitsLocalM, MPFR_RNDN);
+
+  mpfr_clears(ulpsLocalM, bitsLocalM, NULL);
+
+  if (bitsLocal > evalinfo->max_local){
+    evalinfo->max_local = bitsLocal;
+  }
+  evalinfo->total_local += bitsLocal;
+
+  if (print_errors_long || print_errors){
+    VG_(printf)("The locally approximate value is ");
+    printFloat(localResult);
+    VG_(printf)("\n");
     VG_(printf)("Local error was: %f (%llu ulps).\n",
                 bitsLocal, ulpsLocal);
-    VG_(printf)("(Operation at %lX)\n", opinfo->debuginfo.op_addr);
-    if (opinfo->debuginfo.src_filename != NULL)
-      VG_(printf)("%s at %s:%u in %s\n",
-                  opinfo->debuginfo.plain_opname,
-                  opinfo->debuginfo.src_filename,
-                  opinfo->debuginfo.src_line,
-                  opinfo->debuginfo.fnname);
-    VG_(printf)("\n");
   }
 }
 

@@ -65,7 +65,7 @@ struct _CpShadow_Info {
 
 struct _OpDebug_Info {
   // The address of the operation in the binary
-  Addr op_addr;
+  Addr addr;
   // The source line of the operation
   UInt src_line;
   // The source file of the operation
@@ -92,7 +92,7 @@ struct _Eval_Info {
   double total_local;
   // The number of times we've evaluated the error of this operation.
   SizeT num_calls;
-  double** regimes_data;
+  // double** regimes_data;
 };
 
 struct _Op_Info {
@@ -129,8 +129,6 @@ struct _Op_Info {
   // locations, so we're going to store them as an array that's
   // malloc'd when we know how big they're going to be.
   UWord** arg_values;
-
-  XArray* influences;
 };
 
 struct _Op_Infos_ptr {
