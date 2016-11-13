@@ -179,7 +179,9 @@ void performOp(OpType op, double* result, double* args){
       if (print_inputs){
         VG_(printf)("Shadow arg: ");
         printShadowVal(arg_shadows[0]);
-        VG_(printf)("\nComputed arg: %f\n", args[0]);
+        VG_(printf)("\nComputed arg: ");
+        printFloat(args[0]);
+        VG_(printf)("\n");
       }
       // Perform the operation on both regular and shadow values.
       mpfr_func(res, args_m[0], MPFR_RNDN);
@@ -205,7 +207,9 @@ void performOp(OpType op, double* result, double* args){
                     shadowArg1Str, shadowArg1Expt);
         mpfr_free_str(shadowArg1Str);
 
-        VG_(printf)("Computed arg: %f\n", args[0]);
+        VG_(printf)("Computed arg: ");
+        printFloat(args[0]);
+        VG_(printf)("\n");
       }
       // Perform the operation on both regular and shadow values.
       mpfr_func(res, args_m[0]);
@@ -234,9 +238,11 @@ void performOp(OpType op, double* result, double* args){
         mpfr_free_str(shadowArg1Str);
         mpfr_free_str(shadowArg2Str);
 
-        VG_(printf)("Computed first arg: %f\n"
-                    "Computed second arg: %f\n",
-                    args[0], args[1]);
+        VG_(printf)("Computed first arg: ");
+        printFloat(args[0]);
+        VG_(printf)("\nComputed second arg: ");
+        printFloat(args[1]);
+        VG_(printf)("\n");
       }
       // Perform the operation on both regular and shadow values.
       mpfr_func(res, args_m[0], args_m[1], MPFR_RNDN);
@@ -276,10 +282,12 @@ void performOp(OpType op, double* result, double* args){
         mpfr_free_str(shadowArg2Str);
         mpfr_free_str(shadowArg3Str);
 
-        VG_(printf)("Computed first arg: %f\n"
-                    "Computed second arg: %f\n"
-                    "Computed third arg: %f\n",
-                    args[0], args[1], args[2]);
+        VG_(printf)("Computed first arg: ");
+        printFloat(args[0]);
+        VG_(printf)("\nComputed second arg: ");
+        printFloat(args[1]);
+        VG_(printf)("\nComputed third arg: ");
+        printFloat(args[2]);
       }
       // Perform the operation on both regular and shadow values.
       mpfr_func(res, args_m[0], args_m[1], args_m[2], MPFR_RNDN);

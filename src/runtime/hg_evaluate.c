@@ -33,10 +33,12 @@
 #include "../types/hg_stemtea.h"
 #include "../include/hg_options.h"
 #include "hg_output.h"
+#include "hg_print.h"
 
 #include "pub_tool_libcassert.h"
 
 #include <math.h>
+#include <float.h>
 
 void evaluateOpError(ShadowValue* shadowVal, double actualVal,
                      Op_Info* opinfo, double localResult,
@@ -122,17 +124,22 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
       shadowValstr = mpfr_get_str(NULL, &shadowValexpt, 10, longprint_len, shadowVal->value, MPFR_RNDN);
 
       VG_(printf)("The shadowed val is %se%ld, "
-                  "and the actual (computed) val is %f.\n"
-                  "The locally approximate value is %f.\n",
-                  shadowValstr, shadowValexpt, actualVal,
-                  localResult);
+                  "and the actual (computed) val is ",
+                  shadowValstr, shadowValexpt);
+      printFloat(actualVal);
+      VG_(printf)("\nThe locally approximate value is ");
+      printFloat(localResult);
+      VG_(printf)(".\n\n");
       mpfr_free_str(shadowValstr);
     }
     else if (print_errors){
-      VG_(printf)("The shadowed val is %f, "
-                  "and the actual (computed) val is %f.\n"
-                  "The locally approximate value is %f.\n",
-                  shadowValD, actualVal, localResult);
+      VG_(printf)("The shadowed val is ");
+      printFloat(shadowValD);
+      VG_(printf)(", and the actual (computed) val is ");
+      printFloat(actualVal);
+      VG_(printf)(".\nThe locally approximate value is ");
+      printFloat(localResult);
+      VG_(printf)(".\n");
     }
   
     VG_(printf)("The bits error of that operation was: %f (%llu ulps).\n",
@@ -146,6 +153,7 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
                   opinfo->debuginfo.src_filename,
                   opinfo->debuginfo.src_line,
                   opinfo->debuginfo.fnname);
+    VG_(printf)("\n");
   }
 }
 

@@ -212,8 +212,9 @@ VG_REGPARM(1) void executeUnaryShadowOp(Op_Info* opInfo){
         dest = mkShadowValue();
         destLocation->values[i] = dest;
         if (print_inputs){
-          VG_(printf)("Computed arg, part %d: %f\n",
-                      i, ((double*)opInfo->arg_values[0])[i]);
+          VG_(printf)("Computed arg, part %d: ", i);
+          printFloat(((double*)opInfo->arg_values[0])[i]);
+          VG_(printf)("\n");
         }
         mpfr_func(dest->value, arg->value, MPFR_RNDN);
         // Set up the stem record of this operation.
@@ -585,8 +586,9 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
       }
       for (int i = 0; i < num_values; ++i){
         if (print_inputs){
-          VG_(printf)("Computed arg, part %d: %f\n",
-                      i, ((double*)opInfo->arg_values[0])[i]);
+          VG_(printf)("Computed arg, part %d: ", i);
+          printFloat(((double*)opInfo->arg_values[1])[i]);
+          VG_(printf)("\n");
         }
         // Initialize a shadow value in the given slot in
         // destLocation.
@@ -751,10 +753,11 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
       int i;
       for (i = 0; i < num_values; ++i){
         if (print_inputs){
-          VG_(printf)("Computed first arg, part %d: %f\n"
-                      "Computed second arg, part %d: %f\n",
-                      i, ((double*)opInfo->arg_values[0])[i],
-                      i, ((double*)opInfo->arg_values[1])[i]);
+          VG_(printf)("Computed first arg, part %d: ", i);
+          printFloat(((double*)opInfo->arg_values[0])[i]);
+          VG_(printf)("\nComputed second arg, part %d: ", i);
+          printFloat(((double*)opInfo->arg_values[1])[i]);
+          VG_(printf)("\n");
         }
         ShadowValue* arg1val = getShadowValue(arg1Location, i,
                                               opInfo->arg_values[0]);
@@ -1102,10 +1105,11 @@ VG_REGPARM(1) void executeTernaryShadowOp(Op_Info* opInfo){
 
   for (int i = 0; i < num_vals; ++i){
     if (print_inputs){
-      VG_(printf)("Computed first arg, part %d: %f\n"
-                  "Computed second arg, part %d: %f\n",
-                  i, ((double*)opInfo->arg_values[1])[i],
-                  i, ((double*)opInfo->arg_values[2])[i]);
+      VG_(printf)("Computed first arg, part %d: ", i);
+      printFloat(((double*)opInfo->arg_values[1])[i]);
+      VG_(printf)("\nComputed second arg, part %d: ", i);
+      printFloat(((double*)opInfo->arg_values[2])[i]);
+      VG_(printf)("\n");
     }
     // Set the destination shadow value to the result of a
     // high-precision shadowing operation.
@@ -1237,12 +1241,13 @@ VG_REGPARM(1) void executeQuadnaryShadowOp(Op_Info* opInfo){
     VG_(printf)("\nShadow third arg: ");
     printShadowLoc(arg4Location);
     VG_(printf)("\n");
-    VG_(printf)("Computed first arg: %f\n"
-                "Computed second arg: %f\n"
-                "Computed third arg: %f\n",
-                ((double*)opInfo->arg_values[1])[0],
-                ((double*)opInfo->arg_values[2])[0],
-                ((double*)opInfo->arg_values[3])[0]);
+    VG_(printf)("Computed first arg: ");
+    printFloat(((double*)opInfo->arg_values[1])[0]);
+    VG_(printf)("\nComputed second arg: ");
+    printFloat(((double*)opInfo->arg_values[2])[0]);
+    VG_(printf)("\nComputed third arg: ");
+    printFloat(((double*)opInfo->arg_values[3])[0]);
+    VG_(printf)("\n");
   }
   mpfr_t localArg2, localArg3, localArg4, localResult;
   mpfr_inits2(num_mantissa_bits(argType),

@@ -41,6 +41,7 @@
 #include "pub_tool_mallocfree.h"
 
 #include "../runtime/performance_analysis.h"
+#include "../runtime/hg_print.h"
 
 #include <stdarg.h>
 #include <math.h>
@@ -653,7 +654,7 @@ char* teaToStructureString(TeaNode* tea, SizeT max_depth){
     VG_(snprintf)(buf, 4, "...");
   } else if (tea->type == Node_Leaf){
     if (tea->hasConst){
-      VG_(snprintf)(buf, max_expr_string_size, "%f", tea->constValue);
+      snprintFloat(buf, max_expr_string_size, tea->constValue);
     } else {
       VG_(snprintf)(buf, 2, "%c", varNames[0]);
     }
@@ -686,7 +687,7 @@ char* teaToStringWithMaps(TeaNode* topTea,
     VG_(snprintf)(buf, max_expr_string_size, "...");
   } else if (curTea->type == Node_Leaf || max_depth <= 1){
     if (curTea->hasConst){
-      VG_(snprintf)(buf, max_expr_string_size, "%f", curTea->constValue);
+      snprintFloat(buf, max_expr_string_size, curTea->constValue);
     } else {
       if (node_map == NULL){
         VG_(snprintf)(buf, 2, "%c", varNames[0]);
