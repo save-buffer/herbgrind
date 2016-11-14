@@ -111,6 +111,7 @@ That doesn't seem flattened...\n");
     }
     break;
   case Ist_PutI:
+    tl_assert(0);
     // This will look a lot like above, but we have to deal with not
     // knowing at compile time which piece of thread state we're
     // putting into. This will probably involve putting more burden
@@ -265,6 +266,7 @@ That doesn't seem flattened...\n");
       break;
     case Iex_GetI:
       {
+        tl_assert(0);
         IRExpr* indexExpr =
           // Calculate array_base + (ix + bias) %
           // array_len at run time. This will give us
