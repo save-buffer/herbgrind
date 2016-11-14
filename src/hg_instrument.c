@@ -171,9 +171,9 @@ That doesn't seem flattened...\n");
                                             [VG_(get_running_tid)()]),
                                       indexExpr));
           addStmtToIRSB(sbOut, computeSDestAddr);
-          addStore(sbOut,
-                   mkU64(0),
-                   IRExpr_RdTmp(shadowDestAddr));
+          addStoreE(sbOut,
+                    mkU64(0),
+                    IRExpr_RdTmp(shadowDestAddr));
         }
       }
       break;

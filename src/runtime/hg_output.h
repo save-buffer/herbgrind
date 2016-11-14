@@ -47,10 +47,11 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr);
 void dedupAdd(XArray* array, void* item);
 
 void markValueImportant(ShadowValue* shadowVal,
+                        Op_Info* op,
                         InfluenceBits lciBits,
                         double computedValue);
 void propagateInfluences(ShadowValue* dest, int nargs, ...);
-void trackValueExpr(ShadowValue* val, double computedValue);
+void trackValueExpr(ShadowValue* val, Op_Info* op, double computedValue);
 int addInfluenceToTableDedup(Op_Info* influence);
 
 void clearInfluence(Op_Info* opinfo, XArray* influences);

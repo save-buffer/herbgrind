@@ -68,7 +68,7 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr){
   return mark;
 }
 
-void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits,
+void markValueImportant(ShadowValue* shadowVal, Op_Info* op, InfluenceBits lciBits,
                         double computedValue){
   if (marks == NULL){
     marks = VG_(newXA)(VG_(malloc), "op tracker",
@@ -89,7 +89,7 @@ void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits,
   }
   if (curMark == NULL){
     if (shadowVal){
-      curMark = mkMark(shadowVal->stem->branch.op, curAddr);
+      curMark = mkMark(op, curAddr);
     } else {
       curMark = mkMark(NULL, curAddr);
     }
@@ -106,16 +106,14 @@ void markValueImportant(ShadowValue* shadowVal, InfluenceBits lciBits,
     evaluateError_bare(shadowVal, &(curMark->evalinfo), computedValue);
   }
 }
-void trackValueExpr(ShadowValue* val, double computedValue){
-  tl_assert2(val->stem->type == Node_Branch,
-             "Tried to track a leaf value!");
-  dedupAdd(val->tracked_influences, val->stem->branch.op);
+void trackValueExpr(ShadowValue* val, Op_Info* op, double computedValue){
+  dedupAdd(val->tracked_influences, op);
 
-  int tableIndex = addInfluenceToTableDedup(val->stem->branch.op);
-  setBitOn(&(tempInfluences[val->stem->branch.op->dest_tmp]), tableIndex);
+  int tableIndex = addInfluenceToTableDedup(op);
+  setBitOn(&(tempInfluences[op->dest_tmp]), tableIndex);
 
   if (report_all){
-    markValueImportant(val, getMaskTemp(val->stem->branch.op->dest_tmp),
+    markValueImportant(val, op, getMaskTemp(op->dest_tmp),
                        computedValue);
   }
 }

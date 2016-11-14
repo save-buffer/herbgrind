@@ -62,7 +62,7 @@ void evaluateOpError(ShadowValue* shadowVal, double actualVal,
   if ((bitsError >= error_threshold && !localize) ||
       (bitsLocal >= error_threshold && localize) ||
       force){
-    trackValueExpr(shadowVal, actualVal);
+    trackValueExpr(shadowVal, opinfo, actualVal);
     if (report_exprs){
       updateTea(opinfo, shadowVal->stem);
     }
