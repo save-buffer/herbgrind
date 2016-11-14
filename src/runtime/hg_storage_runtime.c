@@ -115,6 +115,12 @@ VG_REGPARM(1) void copyShadowTmptoTS(CpShadow_Info* info){
   }
 }
 
+VG_REGPARM(2) void clearTS(UWord index, UWord size){
+  for(int i = 0; i < size; ++i){
+    threadRegisters[VG_(get_running_tid)()][index + i] = NULL;
+  }
+}
+
 // Copy a shadow value from somewhere in the thread state to a temporary.
 VG_REGPARM(1) void copyShadowTStoTmp(CpShadow_Info* info){
   ShadowLocation* loc;

@@ -62,6 +62,7 @@ VG_REGPARM(1) void copyShadowMemtoTmp(CpShadow_Info* info);
 VG_REGPARM(1) void copyShadowMemtoTmpIf(LoadG_Info* info);
 VG_REGPARM(1) void copyShadowTmptoMem(CpShadow_Info* info);
 VG_REGPARM(2) void copyShadowTmptoMemG(UWord cond, CpShadow_Info* info);
+VG_REGPARM(2) void clearTS(UWord index, UWord size);
 // Disown all shadow values held in temporaries and set the
 // temporaries array to nulls.
 VG_REGPARM(0) void initBlock(void);

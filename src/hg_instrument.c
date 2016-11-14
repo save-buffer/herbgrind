@@ -96,11 +96,14 @@ void instrumentStatement(IRStmt* st, IRSB* sbOut, Addr stAddr, int opNum){
                  [st->Ist.Put.offset]));
       break;
     case Iex_Const:
-      addStore(sbOut,
-               mkU64(0),
-               &(threadRegisters
-                 [VG_(get_running_tid)()]
-                 [st->Ist.Put.offset]));
+      for(int i = 0; i < sizeOfIRType(typeOfIRConst(expr->Iex.Const.con));
+          ++i){
+        addStore(sbOut,
+                 mkU64(0),
+                 &(threadRegisters
+                   [VG_(get_running_tid)()]
+                   [st->Ist.Put.offset + i]));
+      }
       break;
     default:
       // This shouldn't happen in flattened IR.
@@ -908,6 +911,36 @@ Bool isOp(IRStmt* st){
     }
   default:
     return False;
+  }
+}
+
+int sizeOfIRType(IRType type){
+  switch(type){
+  case Ity_INVALID:
+  case Ity_I1:
+  case Ity_I8:
+    return 1;
+  case Ity_I16:
+  case Ity_F16:   /* 16 bit float */
+    return 2;
+  case Ity_I32:
+  case Ity_F32:   /* IEEE 754 float */
+  case Ity_D32:   /* 32-bit Decimal floating point */
+    return 3;
+  case Ity_I64:
+  case Ity_F64:   /* IEEE 754 double */
+  case Ity_D64:   /* 64-bit Decimal floating point */
+    return 4;
+  case Ity_I128:  /* 128-bit scalar */
+  case Ity_D128:  /* 128-bit Decimal floating point */
+  case Ity_F128:  /* 128-bit floating point; implementation defined */
+  case Ity_V128:  /* 128-bit SIMD */
+    return 8;
+  case Ity_V256:   /* 256-bit SIMD */
+    return 16;
+  default:
+    tl_assert(0);
+    return 0;
   }
 }
 void init_instrumentation(){

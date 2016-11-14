@@ -102,6 +102,8 @@ void finalizeBlock(IRSB* sbOut);
 // VEX's type system.
 int isFloat(IRTypeEnv* env, IRTemp temp);
 int isFloatType(IRType type);
+int sizeOfIRType(IRType type);
+IRExpr* zeroOfIRTypeSize(IRType type);
 
 Bool isOp(IRStmt* st);
 void init_instrumentation(void);
