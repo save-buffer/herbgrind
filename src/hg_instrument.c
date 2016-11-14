@@ -714,22 +714,24 @@ That doesn't seem flattened...\n");
                                           st->Ist.StoreG.details->addr,
                                           st->Ist.StoreG.details->guard));
         addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
-        ALLOC(cpinfo, "hg.copyShadowTmptoMemGInfo.1", 1, sizeof(CpShadow_Info));
-        cpinfo->src_idx = expr->Iex.RdTmp.tmp;
-        cpinfo->instr_addr = stAddr;
-        cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
+        if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
+          ALLOC(cpinfo, "hg.copyShadowTmptoMemGInfo.1", 1, sizeof(CpShadow_Info));
+          cpinfo->src_idx = expr->Iex.RdTmp.tmp;
+          cpinfo->instr_addr = stAddr;
+          cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
 
-        addStore(sbOut,
-                 st->Ist.StoreG.details->addr,
-                 &(cpinfo->dest_idx));
+          addStore(sbOut,
+                   st->Ist.StoreG.details->addr,
+                   &(cpinfo->dest_idx));
 
-        copyShadowLocation =
-          unsafeIRDirty_0_N(2,
-                            "copyShadowTmptoMemG",
-                            VG_(fnptr_to_fnentry)(&copyShadowTmptoMemG),
-                            mkIRExprVec_2(st->Ist.StoreG.details->guard,
-                                          mkU64((uintptr_t)cpinfo)));
-        addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+          copyShadowLocation =
+            unsafeIRDirty_0_N(2,
+                              "copyShadowTmptoMemG",
+                              VG_(fnptr_to_fnentry)(&copyShadowTmptoMemG),
+                              mkIRExprVec_2(st->Ist.StoreG.details->guard,
+                                            mkU64((uintptr_t)cpinfo)));
+          addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
+        }
       }
       break;
     case Iex_Const:
