@@ -56,8 +56,14 @@
 #define mkU32(_n) IRExpr_Const(IRConst_U32(_n))
 #define mkU64(_n) IRExpr_Const(IRConst_U64(_n))
 
+#define addStoreE(sb, src_expr, dest_addr_expr) \
+  addStmtToIRSB(sb, IRStmt_Store(ENDIAN, dest_addr_expr, src_expr));
 #define addStore(sb, src_expr, dest_addr) \
-  addStmtToIRSB(sb, IRStmt_Store(ENDIAN, mkU64((uintptr_t)dest_addr), src_expr));
+  addStoreE(sb, src_expr, mkU64((uintptr_t)dest_addr));
+#define addLoad64E(sb, addr_expr, temp) \
+  addStmtToIRSB(sb, IRStmt_WrTmp(temp, \
+                                 IRExpr_Load(ENDIAN, Ity_I64, \
+                                             addr_expr)));
 #define addLoad64(sb, addr, temp) \
   addStmtToIRSB(sb, IRStmt_WrTmp(temp, IRExpr_Load(ENDIAN, Ity_I64, mkU64((uintptr_t)addr))));
 

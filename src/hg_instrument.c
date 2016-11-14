@@ -139,13 +139,14 @@ That doesn't seem flattened...\n");
         IRStmt* computeDestAddr =
           IRStmt_WrTmp(destAddr,
                        IRExpr_Binop(Iop_Add64,
-                                    mkU64((uintptr_t)tsInfluences
-                                          [VG_(get_running_tid)()]),
+                                    mkU64((uintptr_t)
+                                          (tsInfluences
+                                           [VG_(get_running_tid)()])),
                                     indexExpr));
         addStmtToIRSB(sbOut, computeDestAddr);
-        addStore(sbOut,
-                 IRExpr_RdTmp(influence),
-                 IRExpr_RdTmp(destAddr));
+        addStoreE(sbOut,
+                  IRExpr_RdTmp(influence),
+                  IRExpr_RdTmp(destAddr));
         if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
           ALLOC(cpinfo, "hg.copyShadowTmptoTSInfo.1", 1, sizeof(CpShadow_Info));
           cpinfo->instr_addr = stAddr;
@@ -171,7 +172,7 @@ That doesn't seem flattened...\n");
           addStmtToIRSB(sbOut, computeSDestAddr);
           addStore(sbOut,
                    mkU64(0),
-                   computeSDestAddr);
+                   IRExpr_RdTmp(shadowDestAddr));
         }
       }
       break;
@@ -192,13 +193,14 @@ That doesn't seem flattened...\n");
         IRStmt* computeSDestAddr =
           IRStmt_WrTmp(shadowDestAddr,
                        IRExpr_Binop(Iop_Add64,
-                                    mkU64((uintptr_t)threadRegisters
-                                          [VG_(get_running_tid)()]),
+                                    mkU64((uintptr_t)
+                                          (threadRegisters
+                                           [VG_(get_running_tid)()])),
                                     indexExpr));
         addStmtToIRSB(sbOut, computeSDestAddr);
-        addStore(sbOut,
-                 mkU64(0),
-                 computeSDestAddr);
+        addStoreE(sbOut,
+                  mkU64(0),
+                  IRExpr_RdTmp(shadowDestAddr));
       }
       break;
     default:
@@ -283,8 +285,8 @@ That doesn't seem flattened...\n");
                                     indexExpr));
         addStmtToIRSB(sbOut, computeSrcAddr);
         IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
-        addLoad64(sbOut, IRExpr_RdTmp(srcAddr),
-                  influence);
+        addLoad64E(sbOut, IRExpr_RdTmp(srcAddr),
+                   influence);
         addStore(sbOut,
                  IRExpr_RdTmp(influence),
                  &(tempInfluences[st->Ist.WrTmp.tmp]));
