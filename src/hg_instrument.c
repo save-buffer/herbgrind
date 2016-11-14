@@ -96,14 +96,26 @@ void instrumentStatement(IRStmt* st, IRSB* sbOut, Addr stAddr, int opNum){
                  [st->Ist.Put.offset]));
       break;
     case Iex_Const:
-      for(int i = 0; i < sizeOfIRType(typeOfIRConst(expr->Iex.Const.con));
-          ++i){
-        addStore(sbOut,
-                 mkU64(0),
-                 &(threadRegisters
-                   [VG_(get_running_tid)()]
-                   [st->Ist.Put.offset + i]));
-      }
+      copyShadowLocation =
+        unsafeIRDirty_0_N(2,
+                          "clearTS",
+                          VG_(fnptr_to_fnentry)(&clearTS),
+                          mkIRExprVec_2(mkU64(st->Ist.Put.offset),
+                                        mkU64(sizeOfIRType(typeOfIRConst(expr->Iex.Const.con)))));
+      /* addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation)); */
+      /* for(int i = 0; i < sizeOfIRType(typeOfIRConst(expr->Iex.Const.con)); */
+      /*     ++i){ */
+      /*   addStore(sbOut, */
+      /*            mkU64(0), */
+      /*            &(threadRegisters */
+      /*              [VG_(get_running_tid)()] */
+      /*              [st->Ist.Put.offset + i])); */
+      /* } */
+      /* addStore(sbOut, */
+      /*          mkU64(0), */
+      /*          &(threadRegisters */
+      /*            [VG_(get_running_tid)()] */
+      /*            [st->Ist.Put.offset])); */
       break;
     default:
       // This shouldn't happen in flattened IR.
