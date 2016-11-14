@@ -793,17 +793,63 @@ That doesn't seem flattened...\n");
     }
     break;
   case Ist_CAS:
+    {
+      tl_assert(st->Ist.CAS.details->expdHi == NULL);
+      IRDirty* copyOldInfluence =
+        unsafeIRDirty_0_N(2,
+                          "copyInfluenceFromMem",
+                          VG_(fnptr_to_fnentry)(&copyInfluenceFromMem),
+                          mkIRExprVec_2(st->Ist.CAS.details->addr,
+                                        mkU64(st->Ist.CAS.details->oldLo)));
+      addStmtToIRSB(sbOut, IRStmt_Dirty(copyOldInfluence));
+      if (st->Ist.CAS.details->dataLo->tag == Iex_RdTmp){
+        IROp compare;
+        switch(typeOfIRTemp(sbOut->tyenv,
+                            st->Ist.CAS.details->oldLo)){
+        case Ity_I8:
+          compare = Iop_CasCmpEQ8;
+          break;
+        case Ity_I16:
+          compare = Iop_CasCmpEQ16;
+          break;
+        case Ity_I32:
+          compare = Iop_CasCmpEQ32;
+          break;
+        case Ity_I64:
+          compare = Iop_CasCmpEQ64;
+          break;
+        default:
+          compare = Iop_INVALID;
+          tl_assert(0);
+          return;
+        }
+        IRTemp succeeded = newIRTemp(sbOut->tyenv, Ity_I1);
+        IRStmt* checkSucceeded =
+          IRStmt_WrTmp(succeeded,
+                       IRExpr_Binop(compare,
+                                    st->Ist.CAS.details->expdLo,
+                                    IRExpr_RdTmp(st->Ist.CAS.details->oldLo)));
+        addStmtToIRSB(sbOut, checkSucceeded);
+        IRTemp succeededWord = newIRTemp(sbOut->tyenv, Ity_I64);
+        IRStmt* convertSucceeded =
+          IRStmt_WrTmp(succeededWord,
+                       IRExpr_Unop(Iop_1Uto64, IRExpr_RdTmp(succeeded)));
+        addStmtToIRSB(sbOut, convertSucceeded);
+        IRDirty* copyInfluenceIfSucceeded =
+          unsafeIRDirty_0_N(3,
+                            "copyInfluenceToMemIf",
+                            VG_(fnptr_to_fnentry)(&copyInfluenceToMemIf),
+                            mkIRExprVec_3(mkU64(st->Ist.CAS.details->dataLo->Iex.RdTmp.tmp),
+                                          st->Ist.CAS.details->addr,
+                                          IRExpr_RdTmp(succeededWord)));
+        addStmtToIRSB(sbOut, IRStmt_Dirty(copyInfluenceIfSucceeded));
+      }
+    }
     // This is an atomic compare and swap operation. Basically, has
     // three parts: a destination, a value address, an expected
     // value, and a result value. If the value at the value address
     // is equal to the expected value, then the result value is
     // stored in the destination temp.
-
-    // TODO: Add something here if we ever want to support multithreading.
-
-    VG_(dmsg)("\
-Warning! Herbgrind does not currently support the Compare and Swap instruction, \
-because we don't support multithreaded programs.\n");
     break;
   case Ist_LLSC:
     // I honestly have no goddamn idea what this does. See: libvex_ir.h:2816
