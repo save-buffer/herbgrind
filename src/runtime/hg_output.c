@@ -244,17 +244,15 @@ void writeReport(const char* filename){
                                   mark->debuginfo.src_filename,
                                   mark->debuginfo.src_line,
                                   mark->debuginfo.addr);
-        if (mark->op != NULL){
-          entry_len += VG_(snprintf)(buf + entry_len,
-                                     ENTRY_BUFFER_SIZE - entry_len,
-                                     "%f bits average error\n"
-                                     "%f bits max error\n"
-                                     "Aggregated over %lu instances\n",
-                                     mark->evalinfo.total_error /
-                                     mark->evalinfo.num_calls,
-                                     mark->evalinfo.max_error,
-                                     mark->evalinfo.num_calls);
-        }
+        entry_len += VG_(snprintf)(buf + entry_len,
+                                   ENTRY_BUFFER_SIZE - entry_len,
+                                   "%f bits average error\n"
+                                   "%f bits max error\n"
+                                   "Aggregated over %lu instances\n",
+                                   mark->evalinfo.total_error /
+                                   mark->evalinfo.num_calls,
+                                   mark->evalinfo.max_error,
+                                   mark->evalinfo.num_calls);
         entry_len += VG_(snprintf)(buf + entry_len,
                                    ENTRY_BUFFER_SIZE - entry_len,
                                    "Influenced by erroneous expressions:\n\n");
