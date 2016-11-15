@@ -164,8 +164,11 @@ static Bool hg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret) {
         markValueImportant(shadowVal, shadowVal->stem->branch.op, getMaskMem((Addr)arg[1]),
                            *(double*)arg[1]);
       } else {
-        markValueImportant(shadowVal, NULL, getMaskMem((Addr)arg[1]),
-                           *(double*)arg[1]);
+        if (((void*)arg[1]) != NULL){
+          InfluenceBits mask = getMaskMem((Addr)arg[1]);
+          markValueImportant(shadowVal, NULL, mask,
+                             *(double*)arg[1]);
+        }
       }
     }
     break;
