@@ -37,6 +37,7 @@ extern mpfr_prec_t precision;
 extern double error_threshold;
 extern Bool report_exprs;
 extern SizeT max_tea_track_depth;
+extern const HChar* outfile_path;
 
 extern Bool human_readable;
 extern SizeT max_print_depth;

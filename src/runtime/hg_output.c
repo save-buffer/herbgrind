@@ -49,6 +49,9 @@ Op_Info* influencesTable[128];
 
 #define NCALLFRAMES 5
 
+#define WRITE_COUNTER 1
+long long int num_importants = WRITE_COUNTER;
+
 OutputMark* mkMark(Op_Info* op, Addr curAddr){
   OutputMark* mark;
   ALLOC(mark, "output mark", 1, sizeof(OutputMark));
@@ -68,7 +71,8 @@ OutputMark* mkMark(Op_Info* op, Addr curAddr){
   return mark;
 }
 
-void markValueImportant(ShadowValue* shadowVal, Op_Info* op, InfluenceBits lciBits,
+void markValueImportant(ShadowValue* shadowVal,
+                        Op_Info* op, InfluenceBits lciBits,
                         double computedValue){
   if (marks == NULL){
     marks = VG_(newXA)(VG_(malloc), "op tracker",
@@ -104,7 +108,14 @@ void markValueImportant(ShadowValue* shadowVal, Op_Info* op, InfluenceBits lciBi
       dedupAdd(curMark->influences, new_influence);
     }
     evaluateError_bare(shadowVal, &(curMark->evalinfo), computedValue);
+  } else {
+    curMark->evalinfo.num_calls ++;
   }
+  if (num_importants == 0){
+    num_importants = WRITE_COUNTER;
+    writeReport(outfile_path);
+  }
+  num_importants--;
 }
 void trackValueExpr(ShadowValue* val, Op_Info* op, double computedValue){
   dedupAdd(val->tracked_influences, op);
