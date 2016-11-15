@@ -197,8 +197,8 @@ VG_REGPARM(1) void executeUnaryShadowOp(Op_Info* opInfo){
       // Pull the shadow values for the argument. If we don't already
       // have shadow values for this argument, we'll generate a fresh
       // one from the runtime float value.
-      tl_assert(IRTypetoLocType(opInfo->arg_types[0]) ==
-                argType);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[0]) == */
+      /*           argType); */
       argLocation = getShadowLocation(opInfo->arg_tmps[0],
                                       argType);
       // Allocate space for the result
@@ -255,8 +255,8 @@ VG_REGPARM(1) void executeUnaryShadowOp(Op_Info* opInfo){
     {
       ShadowValue* argVal =
         tryGetValue(opInfo->arg_tmps[0], 1, Lt_Doublex2);
-      tl_assert(IRTypetoLocType(opInfo->arg_types[0]) ==
-                Lt_Doublex2);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[0]) == */
+      /*           Lt_Doublex2); */
       if (argVal == NULL){
         destLocation = NULL;
         break;
@@ -341,7 +341,7 @@ VG_REGPARM(1) void executeUnaryShadowOp(Op_Info* opInfo){
         VG_(printf)("\nArg type is ");
         ppIRType(opInfo->arg_types[0]);
         VG_(printf)("\n");
-        tl_assert(0);
+        /* tl_assert(0); */
       }
 
       if (argValue == NULL){
@@ -363,8 +363,8 @@ VG_REGPARM(1) void executeUnaryShadowOp(Op_Info* opInfo){
       // Set up space for the argument and result shadow values.
       ShadowValue* argVal =
         tryGetValue(opInfo->arg_tmps[0], 0, Lt_Double);
-      tl_assert(IRTypetoLocType(opInfo->arg_types[0]) ==
-                Lt_Double);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[0]) == */
+      /*           Lt_Double); */
       if (argVal == NULL){
         destLocation = NULL;
         break;
@@ -430,10 +430,10 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
     // float value.
     arg1 = tryGetValue(opInfo->arg_tmps[0], 0, Lt_Double);
     arg2 = tryGetValue(opInfo->arg_tmps[1], 0, Lt_Double);
-    tl_assert(IRTypetoLocType(opInfo->arg_types[0]) ==
-              Lt_Double);
-    tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-              Lt_Double);
+    /* tl_assert(IRTypetoLocType(opInfo->arg_types[0]) == */
+    /*           Lt_Double); */
+    /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+    /*           Lt_Double); */
     if (arg1 == NULL && arg2 == NULL){
       destLocation = NULL;
       break;
@@ -448,8 +448,8 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
     // Now we'll allocate memory for the shadowed result of this
     // operation.
     destLocation = mkShadowLocation_bare(Lt_Doublex2);
-    tl_assert(IRTypetoLocType(opInfo->expected_type) ==
-              Lt_Doublex2);
+    /* tl_assert(IRTypetoLocType(opInfo->expected_type) == */
+    /*           Lt_Doublex2); */
 
     // Finally, take the 64 bits of each argument, and put them in the
     // two halves of the result.
@@ -473,8 +473,8 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
         return;
       }
       arg2 = tryGetValue(opInfo->arg_tmps[1], 0, argType);
-      tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-                argType);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+      /*           argType); */
       if (arg2 == NULL){
         destLocation = NULL;
         break;
@@ -492,8 +492,8 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
     // For semantic conversions between floating point types we can
     // just copy across the values, if they're there.
     arg2 = tryGetValue(opInfo->arg_tmps[1], 0, Lt_Double);
-    tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-              Lt_Double);
+    /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+    /*           Lt_Double); */
     if (arg2 == NULL){
       destLocation = NULL;
       break;
@@ -601,8 +601,8 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
       // Pull the shadow values for the arguments. If we don't already
       // have shadow values for these arguments, we'll generate fresh
       // ones from the runtime float values.
-      tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-                argType);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+      /*           argType); */
       arg2Location =
         getShadowLocation(opInfo->arg_tmps[1],
                           argType);
@@ -765,10 +765,10 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
       // Pull the shadow values for the arguments. If we don't already
       // have shadow values for these arguments, we'll generate fresh
       // ones from the runtime float values.
-      tl_assert(IRTypetoLocType(opInfo->arg_types[0]) ==
-                argType);
-      tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-                argType);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[0]) == */
+      /*           argType); */
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+      /*           argType); */
       arg1Location =
         getShadowLocation(opInfo->arg_tmps[0],
                           argType);
@@ -862,10 +862,10 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
       // Pull the shadow values for the arguments. If we don't already
       // have shadow values for these arguments, we'll generate fresh
       // ones from the runtime float values.
-      tl_assert(IRTypetoLocType(opInfo->arg_types[0]) ==
-                type);
-      tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-                type);
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[0]) == */
+      /*           type); */
+      /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+      /*           type); */
       arg1Location =
         getShadowLocation(opInfo->arg_tmps[0],
                           type);
@@ -897,8 +897,8 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
     // Probably a negation
     {
       LocType argType = Lt_Float;
-      tl_assert(opInfo->expected_type == opInfo->arg_types[0]);
-      tl_assert(opInfo->expected_type == opInfo->arg_types[1]);
+      /* tl_assert(opInfo->expected_type == opInfo->arg_types[0]); */
+      /* tl_assert(opInfo->expected_type == opInfo->arg_types[1]); */
       if (*(opInfo->arg_values[0]) == 0x8000000000000000 ||
           *(opInfo->arg_values[1]) == 0x8000000000000000 ||
           *(opInfo->arg_values[0]) == 0x2424242424242424 ||
@@ -977,8 +977,8 @@ VG_REGPARM(1) void executeBinaryShadowOp(Op_Info* opInfo){
     printShadowLoc(destLocation);
     VG_(printf)(" in temp %lu.\n", opInfo->dest_tmp);
   }
-  tl_assert(destLocation == NULL ||
-            IRTypetoLocType(opInfo->expected_type) == destLocation->type);
+  /* tl_assert(destLocation == NULL || */
+  /*           IRTypetoLocType(opInfo->expected_type) == destLocation->type); */
   setTemp(opInfo->dest_tmp, destLocation);
 }
 VG_REGPARM(1) void executeTernaryShadowOp(Op_Info* opInfo){
@@ -1123,10 +1123,10 @@ VG_REGPARM(1) void executeTernaryShadowOp(Op_Info* opInfo){
   // Pull the shadow values for the arguments. If we don't already
   // have shadow values for these arguments, we'll generate fresh
   // ones from the runtime float values.
-  tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-            type);
-  tl_assert(IRTypetoLocType(opInfo->arg_types[2]) ==
-            type);
+  /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+  /*           type); */
+  /* tl_assert(IRTypetoLocType(opInfo->arg_types[2]) == */
+  /*           type); */
   arg2Location =
     getShadowLocation(opInfo->arg_tmps[1],
                       type);
@@ -1195,8 +1195,8 @@ VG_REGPARM(1) void executeTernaryShadowOp(Op_Info* opInfo){
     printShadowLoc(destLocation);
     VG_(printf)(" in temp %lu.\n", opInfo->dest_tmp);
   }
-  tl_assert(destLocation == NULL ||
-            IRTypetoLocType(opInfo->expected_type) == destLocation->type);
+  /* tl_assert(destLocation == NULL || */
+  /*           IRTypetoLocType(opInfo->expected_type) == destLocation->type); */
   setTemp(opInfo->dest_tmp, destLocation);
 }
 VG_REGPARM(1) void executeQuadnaryShadowOp(Op_Info* opInfo){
@@ -1251,12 +1251,12 @@ VG_REGPARM(1) void executeQuadnaryShadowOp(Op_Info* opInfo){
   // Pull the shadow values for the arguments. If we don't already
   // have shadow values for these arguments, we'll generate fresh
   // ones from the runtime float values.
-  tl_assert(IRTypetoLocType(opInfo->arg_types[1]) ==
-            argType);
-  tl_assert(IRTypetoLocType(opInfo->arg_types[2]) ==
-            argType);
-  tl_assert(IRTypetoLocType(opInfo->arg_types[3]) ==
-            argType);
+  /* tl_assert(IRTypetoLocType(opInfo->arg_types[1]) == */
+  /*           argType); */
+  /* tl_assert(IRTypetoLocType(opInfo->arg_types[2]) == */
+  /*           argType); */
+  /* tl_assert(IRTypetoLocType(opInfo->arg_types[3]) == */
+  /*           argType); */
   arg2Location =
     getShadowLocation(opInfo->arg_tmps[1],
                       argType);
@@ -1330,8 +1330,8 @@ VG_REGPARM(1) void executeQuadnaryShadowOp(Op_Info* opInfo){
     printShadowLoc(destLocation);
     VG_(printf)(" in temp %lu.\n", opInfo->dest_tmp);
   }
-  tl_assert(destLocation == NULL ||
-            IRTypetoLocType(opInfo->expected_type) == destLocation->type);
+  /* tl_assert(destLocation == NULL || */
+  /*           IRTypetoLocType(opInfo->expected_type) == destLocation->type); */
   setTemp(opInfo->dest_tmp, destLocation);
 }
 

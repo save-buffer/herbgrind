@@ -132,7 +132,7 @@ That doesn't seem flattened...\n");
     }
     break;
   case Ist_PutI:
-    tl_assert(0);
+    /* tl_assert(0); */
     // This will look a lot like above, but we have to deal with not
     // knowing at compile time which piece of thread state we're
     // putting into. This will probably involve putting more burden
@@ -301,7 +301,7 @@ That doesn't seem flattened...\n");
       break;
     case Iex_GetI:
       {
-        tl_assert(0);
+        /* tl_assert(0); */
         IRExpr* indexExpr =
           // Calculate array_base + (ix + bias) %
           // array_len at run time. This will give us
@@ -363,12 +363,14 @@ That doesn't seem flattened...\n");
         addStore(sbOut,
                  IRExpr_RdTmp(influence),
                  &(tempInfluences[st->Ist.WrTmp.tmp]));
+        /* addRuntimeMaskCheck(sbOut, &(tempInfluences[expr->Iex.RdTmp.tmp]), */
+        /*                     "TMP"); */
         if (!isFloat(sbOut->tyenv, st->Ist.WrTmp.tmp)) break;
         ALLOC(cpinfo, "hg.copyShadowTmptoTmpInfo.1", 1,
               sizeof(CpShadow_Info));
         cpinfo->instr_addr = stAddr;
-        tl_assert(typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp) ==
-                  typeOfIRTemp(sbOut->tyenv, st->Ist.WrTmp.tmp));
+        /* tl_assert(typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp) == */
+        /*           typeOfIRTemp(sbOut->tyenv, st->Ist.WrTmp.tmp)); */
         cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
         cpinfo->src_idx = expr->Iex.RdTmp.tmp;
         cpinfo->dest_idx = st->Ist.WrTmp.tmp;
@@ -841,7 +843,7 @@ That doesn't seem flattened...\n");
     break;
   case Ist_CAS:
     {
-      tl_assert(st->Ist.CAS.details->expdHi == NULL);
+      /* tl_assert(st->Ist.CAS.details->expdHi == NULL); */
       IRDirty* copyOldInfluence =
         unsafeIRDirty_0_N(3,
                           "copyInfluenceFromMem",
