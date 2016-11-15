@@ -190,6 +190,10 @@ void instrumentOp(IRSB* sb, Int offset, IRExpr* expr, Addr opAddr, int opNum){
         opInfo->arg_tmps[0] = getArgTmp(expr->Iex.Unop.arg, sb);
         opInfo->dest_tmp = offset;
         opInfo->expected_type = expected_type;
+        for (int i = 0; i < 1; ++i){
+          opInfo->arg_types[i] = typeOfIRTemp(sb->tyenv,
+                                              opInfo->arg_tmps[i]);
+        }
 
         // Add statements to populate the values we don't know until
         // runtime.
@@ -340,6 +344,10 @@ void instrumentOp(IRSB* sb, Int offset, IRExpr* expr, Addr opAddr, int opNum){
           getArgTmp(expr->Iex.Binop.arg2, sb);
         opInfo->dest_tmp = offset;
         opInfo->expected_type = expected_type;
+        for (int i = 0; i < 2; ++i){
+          opInfo->arg_types[i] = typeOfIRTemp(sb->tyenv,
+                                              opInfo->arg_tmps[i]);
+        }
 
         // Add statements to populate the values we don't know until
         // runtime.
@@ -475,6 +483,10 @@ void instrumentOp(IRSB* sb, Int offset, IRExpr* expr, Addr opAddr, int opNum){
           getArgTmp(expr->Iex.Triop.details->arg3, sb);
         opInfo->dest_tmp = offset;
         opInfo->expected_type = expected_type;
+        for (int i = 0; i < 3; ++i){
+          opInfo->arg_types[i] = typeOfIRTemp(sb->tyenv,
+                                              opInfo->arg_tmps[i]);
+        }
 
         // Add statements to populate the values we don't know until
         // runtime.
@@ -547,6 +559,10 @@ void instrumentOp(IRSB* sb, Int offset, IRExpr* expr, Addr opAddr, int opNum){
           getArgTmp(expr->Iex.Qop.details->arg4, sb);
         opInfo->dest_tmp = offset;
         opInfo->expected_type = expected_type;
+        for (int i = 0; i < 4; ++i){
+          opInfo->arg_types[i] = typeOfIRTemp(sb->tyenv,
+                                              opInfo->arg_tmps[i]);
+        }
 
         // Allocate the space for the values we won't know until
         // runtime, but know their size now.

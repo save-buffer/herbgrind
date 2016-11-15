@@ -123,6 +123,8 @@ struct _Op_Info {
   // array too.
   UWord* arg_tmps;
 
+  IRType* arg_types;
+
   // If we don't have a shadow value yet for these arguments, we're
   // going to use the existing float values to create one. These float
   // values can be as big as 256 bits, since we account for SIMD

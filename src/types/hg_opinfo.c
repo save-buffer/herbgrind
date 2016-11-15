@@ -57,6 +57,7 @@ Op_Info* mkOp_Info(SizeT arity, IROp op, Addr opAddr,
   ALLOC(result, "hg.op_info.1", 1, sizeof(Op_Info));
   ALLOC(result->arg_tmps, "hg.op_tmps", arity, sizeof(UWord));
   ALLOC(result->arg_values, "hg.op_values", arity, sizeof(UWord*));
+  ALLOC(result->arg_types, "hg.op_types", arity, sizeof(IRType));
   result->nargs = arity;
   result->op = op;
   getOpDebug_Info(opAddr, name, symbol, &(result->debuginfo));

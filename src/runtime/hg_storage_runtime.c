@@ -86,6 +86,12 @@ VG_REGPARM(1) void copyShadowTmptoTmp(CpShadow_Info* info){
 
   ShadowLocation* newLoc = NULL;
   copySL(loc, &newLoc);
+  /* tl_assert2(newLoc == NULL || */
+  /*            newLoc->type == IRTypetoLocType(info->type), */
+  /*            "Moving shadow location to temp of the wrong type!\n" */
+  /*            "Type if the location is %d, but the type of the temp is %d\n", */
+  /*            newLoc->type, */
+  /*            IRTypetoLocType(info->type)); */
   setTemp(info->dest_idx, newLoc);
 
   if (loc != NULL &&
@@ -126,6 +132,7 @@ VG_REGPARM(1) void copyShadowTStoTmp(CpShadow_Info* info){
   ShadowLocation* loc;
   loc = getLocTS(info->src_idx, IRTypetoLocType(info->type));
   if (!running && loc != NULL) return;
+  tl_assert(loc == NULL || loc->type == IRTypetoLocType(info->type));
   setTemp(info->dest_idx, loc);
 
   if (loc != NULL &&
@@ -142,6 +149,7 @@ VG_REGPARM(1) void copyShadowMemtoTmp(CpShadow_Info* info){
   ShadowLocation* loc;
   if (!running && getMem(info->src_idx) != NULL) return;
   loc = getLocMem(info->src_idx, IRTypetoLocType(info->type));
+  tl_assert(loc == NULL || loc->type == IRTypetoLocType(info->type));
   setTemp(info->dest_idx, loc);
 
   if (loc != NULL && print_moves){
@@ -160,6 +168,8 @@ VG_REGPARM(1) void copyShadowMemtoTmpIf(LoadG_Info* info){
     if (!running && getMem(info->src_mem) != NULL) return;
     ShadowLocation* loc;
     loc = getLocMem(info->src_mem, IRTypetoLocType(info->dest_type));
+    tl_assert(loc == NULL ||
+              loc->type == IRTypetoLocType(info->dest_type));
     setTemp(info->dest_tmp, loc);
 
     if (getMem(info->src_mem) != NULL && print_moves){
@@ -170,6 +180,8 @@ VG_REGPARM(1) void copyShadowMemtoTmpIf(LoadG_Info* info){
     }
   } else {
     if (!running && getTemp(info->alt_tmp) != NULL) return;
+    tl_assert(getTemp(info->alt_tmp)->type ==
+              IRTypetoLocType(info->dest_type));
     setTemp(info->dest_tmp, getTemp(info->alt_tmp));
 
     if (getTemp(info->alt_tmp) != NULL && print_moves){
@@ -390,7 +402,10 @@ void setLoc__(Addr index, ShadowLocation* newLoc, LocType move_type,
   if (newLoc != NULL &&
       capacity(move_type) * el_size(move_type) !=
       capacity(newLoc->type) * el_size(newLoc->type)){
-    VG_(printf)("Bad location type found (when moving from temp to memory/thread state)!!\n");
+    VG_(printf)("Bad location type found (when moving from temp to memory/thread state)!!\n"
+                "Temp had type %d, but contained location had type %d!\n",
+                move_type, newLoc->type);
+    /* tl_assert(0); */
   }
   if (newLoc == NULL ||
       capacity(move_type) * el_size(move_type) !=
