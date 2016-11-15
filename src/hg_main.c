@@ -287,20 +287,20 @@ static void hg_fini(Int exitcode){
   }
 
   // Write out the report
-  HChar filename[100];
-  if (outfile_path == NULL){
-    VG_(snprintf)(filename, 100, "%s-errors.gh", VG_(args_the_exename));
-    outfile_path = filename;
-  }
   writeReport(outfile_path);
 }
 // This does any initialization that needs to be done after command
 // line processing.
 static void hg_post_clo_init(void){
-   init_instrumentation();
-   // Set up the data structures we'll need to keep track of our MPFR
-   // shadow values.
-   init_runtime();
+  init_instrumentation();
+  // Set up the data structures we'll need to keep track of our MPFR
+  // shadow values.
+  init_runtime();
+  HChar filename[100];
+  if (outfile_path == NULL){
+    VG_(snprintf)(filename, 100, "%s-errors.gh", VG_(args_the_exename));
+    outfile_path = filename;
+  }
 }
 
 // This is where we initialize everything
