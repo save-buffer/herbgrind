@@ -328,12 +328,10 @@ void writeReport(const char* filename){
           for(int k = 0; k < VG_(sizeXA)(influencesPrinted); ++k){
             if (influence == *(Op_Info**)VG_(indexXA)(influencesPrinted, k)){
               alreadyPrinted = True;
-              VG_(printf)("Influence already printed!\n");
               break;
             }
           }
           if (alreadyPrinted){
-            VG_(printf)("Influence already printed!\n");
             continue;
           }
         }
