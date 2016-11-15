@@ -35,6 +35,7 @@
 #include "runtime/hg_lci.h"
 #include "pub_tool_hashtable.h"
 #include "pub_tool_threadstate.h"
+#include "pub_tool_libcassert.h"
 
 VgHashTable* opinfo_store;
 
@@ -81,19 +82,24 @@ void instrumentStatement(IRStmt* st, IRSB* sbOut, Addr stAddr, int opNum){
                             mkIRExprVec_1(mkU64((uintptr_t)cpinfo)));
         addStmtToIRSB(sbOut, IRStmt_Dirty(copyShadowLocation));
       } else {
-        addStore(sbOut,
-                 mkU64(0),
-                 &(threadRegisters
-                   [VG_(get_running_tid)()]
-                   [st->Ist.Put.offset]));
+        copyShadowLocation =
+          unsafeIRDirty_0_N(2,
+                            "clearTS",
+                            VG_(fnptr_to_fnentry)(&clearTS),
+                            mkIRExprVec_2(mkU64(st->Ist.Put.offset),
+                                          mkU64(sizeOfIRType(typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp)))));
       }
       IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
       addLoad64(sbOut, &(tempInfluences[expr->Iex.RdTmp.tmp]), influence);
-      addStore(sbOut,
-               IRExpr_RdTmp(influence),
-               &(tsInfluences
-                 [VG_(get_running_tid)()]
-                 [st->Ist.Put.offset]));
+      for (int i = 0; i < sizeOfIRType(typeOfIRTemp(sbOut->tyenv,
+                                                    influence));
+           ++i){
+        addStore(sbOut,
+                 IRExpr_RdTmp(influence),
+                 &(tsInfluences
+                   [VG_(get_running_tid)()]
+                   [st->Ist.Put.offset + i]));
+      }
       break;
     case Iex_Const:
       copyShadowLocation =
@@ -255,11 +261,25 @@ That doesn't seem flattened...\n");
     case Iex_Get:
       {
         IRTemp influence = newIRTemp(sbOut->tyenv, Ity_I64);
-        addLoad64(sbOut,
-                  &(tsInfluences
-                    [VG_(get_running_tid)()]
-                    [expr->Iex.Get.offset]),
-                  influence);
+        IRStmt* clearInfluence =
+          IRStmt_WrTmp(influence, mkU64(0));
+        addStmtToIRSB(sbOut, clearInfluence);
+        for (int i = 0; i < sizeOfIRType(expr->Iex.Get.ty); ++i){
+          IRTemp influencePart = newIRTemp(sbOut->tyenv, Ity_I64);
+          addLoad64(sbOut,
+                    &(tsInfluences
+                      [VG_(get_running_tid)()]
+                      [expr->Iex.Get.offset + i]),
+                    influencePart);
+          IRTemp newInfluence = newIRTemp(sbOut->tyenv, Ity_I64);
+          IRStmt* unionInfluence =
+            IRStmt_WrTmp(newInfluence,
+                         IRExpr_Binop(Iop_Or64,
+                                      IRExpr_RdTmp(influence),
+                                      IRExpr_RdTmp(influencePart)));
+          addStmtToIRSB(sbOut, unionInfluence);
+          influence = newInfluence;
+        }
 
         addStore(sbOut,
                  IRExpr_RdTmp(influence),
@@ -347,6 +367,8 @@ That doesn't seem flattened...\n");
         ALLOC(cpinfo, "hg.copyShadowTmptoTmpInfo.1", 1,
               sizeof(CpShadow_Info));
         cpinfo->instr_addr = stAddr;
+        tl_assert(typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp) ==
+                  typeOfIRTemp(sbOut->tyenv, st->Ist.WrTmp.tmp));
         cpinfo->type = typeOfIRTemp(sbOut->tyenv, expr->Iex.RdTmp.tmp);
         cpinfo->src_idx = expr->Iex.RdTmp.tmp;
         cpinfo->dest_idx = st->Ist.WrTmp.tmp;
@@ -442,12 +464,13 @@ That doesn't seem flattened...\n");
     case Iex_Load:
       {
         IRDirty* cpInfluence =
-          unsafeIRDirty_0_N(2,
+          unsafeIRDirty_0_N(3,
                             "copyInfluenceFromMem",
                             VG_(fnptr_to_fnentry)(&copyInfluenceFromMem),
-                            mkIRExprVec_2(expr->Iex.Load.addr,
+                            mkIRExprVec_3(expr->Iex.Load.addr,
                                           mkU64((uintptr_t)
-                                                st->Ist.WrTmp.tmp)));
+                                                st->Ist.WrTmp.tmp),
+                                          mkU64(sizeOfIRType(expr->Iex.Load.ty))));
 
         addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
         if (isFloatType(expr->Iex.Load.ty)){
@@ -679,11 +702,13 @@ That doesn't seem flattened...\n");
     case Iex_RdTmp:
       {
         IRDirty* cpInfluence =
-          unsafeIRDirty_0_N(2,
+          unsafeIRDirty_0_N(3,
                             "copyInfluenceToMem",
                             VG_(fnptr_to_fnentry)(&copyInfluenceToMem),
-                            mkIRExprVec_2(mkU64(expr->Iex.RdTmp.tmp),
-                                          st->Ist.Store.addr));
+                            mkIRExprVec_3(mkU64(expr->Iex.RdTmp.tmp),
+                                          st->Ist.Store.addr,
+                                          mkU64(sizeOfIRType(typeOfIRTemp(sbOut->tyenv,
+                                                                          expr->Iex.RdTmp.tmp)))));
         addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
         if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
           ALLOC(cpinfo, "hg.copyShadowTmptoMemInfo.1", 1, sizeof(CpShadow_Info));
@@ -721,12 +746,17 @@ That doesn't seem flattened...\n");
     switch(expr->tag) {
     case Iex_RdTmp:
       {
+        CopyInfluenceInfo* info;
+        ALLOC(info, "copy influence info", 1, sizeof(CopyInfluenceInfo));
+        info->src = expr->Iex.RdTmp.tmp;
+        info->size = sizeOfIRType(typeOfIRTemp(sbOut->tyenv,
+                                               expr->Iex.RdTmp.tmp));
+        addStore(sbOut, st->Ist.StoreG.details->addr, &(info->dest));
         IRDirty* cpInfluence =
-          unsafeIRDirty_0_N(3,
+          unsafeIRDirty_0_N(2,
                             "copyInfluenceToMemIf",
                             VG_(fnptr_to_fnentry)(&copyInfluenceToMemIf),
-                            mkIRExprVec_3(mkU64(expr->Iex.RdTmp.tmp),
-                                          st->Ist.StoreG.details->addr,
+                            mkIRExprVec_2(mkU64((uintptr_t)info),
                                           st->Ist.StoreG.details->guard));
         addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
         if (isFloat(sbOut->tyenv, expr->Iex.RdTmp.tmp)){
@@ -763,12 +793,17 @@ That doesn't seem flattened...\n");
     // Guarded load. This will load a value from memory, and write
     // it to a temp, but only if a condition returns true.
     {
+      CopyInfluenceInfo* info;
+      ALLOC(info, "copy influence info", 1, sizeof(CopyInfluenceInfo));
+      addStore(sbOut, st->Ist.LoadG.details->addr, &(info->src));
+      info->size = sizeOfIRType(typeOfIRTemp(sbOut->tyenv,
+                                             st->Ist.LoadG.details->dst));
+      info->dest = st->Ist.LoadG.details->dst;
       IRDirty* cpInfluence =
-        unsafeIRDirty_0_N(3,
+        unsafeIRDirty_0_N(2,
                           "copyInfluenceFromMemIf",
                           VG_(fnptr_to_fnentry)(&copyInfluenceFromMemIf),
-                          mkIRExprVec_3(st->Ist.LoadG.details->addr,
-                                        mkU64(st->Ist.WrTmp.tmp),
+                          mkIRExprVec_2(mkU64((uintptr_t)info),
                                         st->Ist.LoadG.details->guard));
       addStmtToIRSB(sbOut, IRStmt_Dirty(cpInfluence));
     }
@@ -808,11 +843,13 @@ That doesn't seem flattened...\n");
     {
       tl_assert(st->Ist.CAS.details->expdHi == NULL);
       IRDirty* copyOldInfluence =
-        unsafeIRDirty_0_N(2,
+        unsafeIRDirty_0_N(3,
                           "copyInfluenceFromMem",
                           VG_(fnptr_to_fnentry)(&copyInfluenceFromMem),
-                          mkIRExprVec_2(st->Ist.CAS.details->addr,
-                                        mkU64(st->Ist.CAS.details->oldLo)));
+                          mkIRExprVec_3(st->Ist.CAS.details->addr,
+                                        mkU64(st->Ist.CAS.details->oldLo),
+                                        mkU64(sizeOfIRType(typeOfIRTemp(sbOut->tyenv,
+                                                                        st->Ist.CAS.details->oldLo)))));
       addStmtToIRSB(sbOut, IRStmt_Dirty(copyOldInfluence));
       if (st->Ist.CAS.details->dataLo->tag == Iex_RdTmp){
         IROp compare;
@@ -847,12 +884,17 @@ That doesn't seem flattened...\n");
           IRStmt_WrTmp(succeededWord,
                        IRExpr_Unop(Iop_1Uto64, IRExpr_RdTmp(succeeded)));
         addStmtToIRSB(sbOut, convertSucceeded);
+        CopyInfluenceInfo* info;
+        ALLOC(info, "copy influence info", 1, sizeof(CopyInfluenceInfo));
+        info->src = st->Ist.CAS.details->dataLo->Iex.RdTmp.tmp;
+        info->size = sizeOfIRType(typeOfIRTemp(sbOut->tyenv,
+                                               st->Ist.CAS.details->dataLo->Iex.RdTmp.tmp));
+        addStore(sbOut, st->Ist.CAS.details->addr, &(info->dest));
         IRDirty* copyInfluenceIfSucceeded =
-          unsafeIRDirty_0_N(3,
+          unsafeIRDirty_0_N(2,
                             "copyInfluenceToMemIf",
                             VG_(fnptr_to_fnentry)(&copyInfluenceToMemIf),
-                            mkIRExprVec_3(mkU64(st->Ist.CAS.details->dataLo->Iex.RdTmp.tmp),
-                                          st->Ist.CAS.details->addr,
+                            mkIRExprVec_2(mkU64((uintptr_t)info),
                                           IRExpr_RdTmp(succeededWord)));
         addStmtToIRSB(sbOut, IRStmt_Dirty(copyInfluenceIfSucceeded));
       }

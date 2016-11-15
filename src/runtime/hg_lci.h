@@ -40,6 +40,12 @@ typedef struct _InfluenceBits {
   UWord data[4];
 } InfluenceBits;
 
+typedef struct _CopyInfluenceInfo {
+  UWord src;
+  UWord dest;
+  UWord size;
+} CopyInfluenceInfo;
+
 extern InfluenceBits tempInfluences[MAX_TEMPS];
 extern UWord maxTempInfluencesUsed;
 extern VgHashTable* memoryInfluences;
@@ -52,11 +58,13 @@ InfluenceBits getMaskMem(Addr addr);
 void lciGlobalInit(void);
 void lciGlobalTeardown(void);
 void lciBlockTeardown(void);
-VG_REGPARM(2) void copyInfluenceToMem(UWord src_temp, Addr dest_mem);
-VG_REGPARM(3) void copyInfluenceToMemIf(UWord src_temp, Addr dest_mem,
+VG_REGPARM(3) void copyInfluenceToMem(UWord src_temp, Addr dest_mem,
+                                      UWord size);
+VG_REGPARM(2) void copyInfluenceToMemIf(CopyInfluenceInfo* info,
                                         UWord cond);
-VG_REGPARM(2) void copyInfluenceFromMem(Addr src_mem, UWord dest_temp);
-VG_REGPARM(3) void copyInfluenceFromMemIf(Addr src_mem, UWord dest_temp,
+VG_REGPARM(3) void copyInfluenceFromMem(Addr src_mem, UWord dest_temp,
+                                        UWord size);
+VG_REGPARM(2) void copyInfluenceFromMemIf(CopyInfluenceInfo* info,
                                           UWord cond);
 VG_REGPARM(2) void printIfBitsNonZero(Addr bitsLoc, char* label);
 

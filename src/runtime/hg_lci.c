@@ -56,31 +56,36 @@ void lciBlockTeardown(){
   VG_(memset)(tempInfluences, 0, sizeof(InfluenceBits) * maxTempInfluencesUsed);
 }
 
-VG_REGPARM(2) void copyInfluenceToMem(UWord src_temp, Addr dest_mem){
+VG_REGPARM(3) void copyInfluenceToMem(UWord src_temp, Addr dest_mem,
+                                      UWord size){
   InfluenceBits influence = tempInfluences[src_temp];
-  setMaskMem(dest_mem, influence);
-}
-VG_REGPARM(3) void copyInfluenceToMemIf(UWord src_temp, Addr dest_mem,
-                                        UWord cond){
-  if (cond){
-    copyInfluenceToMem(src_temp, dest_mem); 
+  for (int i = 0; i < size; ++i){
+    setMaskMem(dest_mem + i, influence);
   }
 }
-VG_REGPARM(2) void copyInfluenceFromMem(Addr src_mem, UWord dest_temp){
-  MemEntry* entry = VG_(HT_lookup)(memoryInfluences, src_mem);
-  if (entry){
+VG_REGPARM(3) void copyInfluenceToMemIf(CopyInfluenceInfo* info,
+                                        UWord cond){
+  if (cond){
+    copyInfluenceToMem(info->src, info->dest, info->size);
+  }
+}
+VG_REGPARM(3) void copyInfluenceFromMem(Addr src_mem, UWord dest_temp,
+                                        UWord size){
+  tempInfluences[dest_temp] = IB_ZERO;
+  for (int i = 0; i < size; ++i){
+    MemEntry* entry = VG_(HT_lookup)(memoryInfluences, src_mem + i);
+    if (entry){
     /* VG_(printf)("{%p}Copied non-zero influence from %p to temp %lu\n", */
     /*             (void*)getCallAddr(), */
     /*             (void*)src_mem, dest_temp); */
-    tempInfluences[dest_temp] = entry->influence;
-  } else {
-    clearInfluenceBits(&(tempInfluences[dest_temp]));
+      compoundAssignOr(&(tempInfluences[dest_temp]), entry->influence);
+    }
   }
 }
-VG_REGPARM(3) void copyInfluenceFromMemIf(Addr src_mem, UWord dest_temp,
+VG_REGPARM(3) void copyInfluenceFromMemIf(CopyInfluenceInfo* info,
                                           UWord cond){
   if (cond){
-    copyInfluenceFromMem(src_mem, dest_temp);
+    copyInfluenceFromMem(info->src, info->dest, info->size);
   }
 }
 
