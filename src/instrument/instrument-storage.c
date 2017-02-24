@@ -33,6 +33,7 @@
 #include "../helper/instrument-util.h"
 #include "../helper/debug.h"
 #include "../options.h"
+#include "floattypes.h"
 
 #include "pub_tool_libcprint.h"
 #include "pub_tool_machine.h"
@@ -1118,45 +1119,6 @@ FloatType tempType(int idx){
              idx);
   return tempContext[idx];
 }
-int valueSize(IRSB* sbOut, int idx){
-  switch(typeOfIRTemp(sbOut->tyenv, idx)){
-  case Ity_I64:
-  case Ity_F64:
-    return sizeof(double);
-  case Ity_F32:
-  case Ity_I32:
-    return sizeof(float);
-  case Ity_V128:
-    if (tempType(idx) == Ft_Single){
-      return sizeof(float);
-    } else if (tempType(idx) == Ft_Double){
-      return sizeof(double);
-    }
-  default:
-    tl_assert(0);
-    return 0;
-  }
-}
-int numTempValues(IRSB* sbOut, int idx){
-  switch(typeOfIRTemp(sbOut->tyenv, idx)){
-  case Ity_I64:
-  case Ity_F64:
-  case Ity_I32:
-  case Ity_F32:
-    return 1;
-  case Ity_V128:
-    if (tempType(idx) == Ft_Single){
-      return 4;
-    } else if (tempType(idx) == Ft_Double){
-      return 2;
-    }
-  default:
-    VG_(printf)("%d\n", tempType(idx));
-    ppIRType(typeOfIRTemp(sbOut->tyenv, idx));
-    tl_assert(0);
-    return 0;
-  }
-}
 Bool hasStaticShadow(IRExpr* expr){
   switch(expr->tag){
   case Iex_Const:
@@ -1232,26 +1194,6 @@ IRExpr* toDoubleBytes(IRSB* sbOut, IRExpr* floatExpr){
   }
   return result;
 }
-
-int exprSize(IRTypeEnv* tyenv, IRExpr* expr){
-  return typeSize(typeOfIRExpr(tyenv, expr));
-}
-
-int typeSize(IRType type){
-  switch (type){
-  case Ity_I32:
-  case Ity_F32:
-    return 1;
-  case Ity_I64:
-  case Ity_F64:
-    return 2;
-  case Ity_V128:
-    return 4;
-  default:
-    return 1;
-  }
-}
-
 Bool tsAddrCanStoreShadow(Int tsAddr){
   switch(tsContext[tsAddr]){
   case Ft_NonFloat:

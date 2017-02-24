@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- HerbGrind: a valgrind tool for Herbie              ir-info.h ---*/
+/*--- HerbGrind: a valgrind tool for Herbie           floattypes.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -27,15 +27,34 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef _IR_INFO_H
-#define _IR_INFO_H
+#ifndef _FLOATTYPES_H
+#define _FLOATTYPES_H
 
 #include "pub_tool_basics.h"
 #include "pub_tool_tooliface.h"
+#include "pub_tool_hashtable.h"
 
-int numChannelsIn(IROp op_code);
-int numChannelsOut(IROp op_code);
-int numSIMDOperands(IROp op_code);
-int inferOtherNumChannels(int inferIndex, IRExpr* arg, IROp op_code);
+#define MAX_TEMPS 1000
+#define MAX_REGISTERS 1000
 
+typedef enum {
+  Ft_Unknown,
+  Ft_NonFloat,
+  Ft_Unshadowed,
+  Ft_Single,
+  Ft_Double
+} FloatType;
+
+FloatType argPrecision(IROp op_code);
+FloatType resultPrecision(IROp op_code);
+
+int isFloatType(IRType type);
+int isFloat(IRTypeEnv* env, IRTemp temp);
+
+void ppFloatType(FloatType type);
+
+int valueSize(IRSB* sbOut, int idx);
+int numTempValues(IRSB* sbOut, int idx);
+int exprSize(IRTypeEnv* tyenv, IRExpr* expr);
+int typeSize(IRType type);
 #endif

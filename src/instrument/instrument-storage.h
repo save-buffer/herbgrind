@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- HerbGrind: a valgrind tool for Herbie   instrument-storage.c ---*/
+/*--- HerbGrind: a valgrind tool for Herbie   instrument-storage.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -31,7 +31,8 @@
 
 #include "pub_tool_basics.h"
 #include "pub_tool_tooliface.h"
-#include "../helper/ir-info.h"
+
+#include "floattypes.h"
 
 void initInstrumentationState(void);
 void instrumentRdTmp(IRSB* sbOut, IRTemp dest, IRTemp src);
@@ -119,10 +120,6 @@ Bool canHaveShadow(IRTypeEnv* tyenv, IRExpr* expr);
 Bool canBeFloat(IRTypeEnv* typeEnv, IRExpr* expr);
 Bool canStoreShadow(IRTypeEnv* typeEnv, IRExpr* expr);
 IRExpr* toDoubleBytes(IRSB* sbOut, IRExpr* floatExpr);
-int valueSize(IRSB* sbOut, int idx);
-int numTempValues(IRSB* sbOut, int idx);
-int exprSize(IRTypeEnv* tyenv, IRExpr* expr);
-int typeSize(IRType type);
 Bool tsAddrCanHaveShadow(Int tsAddr);
 Bool tsAddrCanStoreShadow(Int tsAddr);
 Bool tsHasStaticShadow(Int tsAddr);

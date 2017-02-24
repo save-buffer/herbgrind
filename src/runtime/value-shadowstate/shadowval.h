@@ -35,6 +35,7 @@
 #include "exprs.hh"
 #include "real.h"
 #include "../../helper/ir-info.h"
+#include "../../instrument/floattypes.h"
 
 typedef struct _ShadowValue {
   // For the shadow temp stacks.
