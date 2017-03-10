@@ -114,6 +114,8 @@ int numChannelsIn(IROp op_code){
   case Iop_Div64F0x2:
   case Iop_Sub64F0x2:
   case Iop_Add64F0x2:
+  case Iop_Min64F0x2:
+  case Iop_Max64F0x2:
   /* case Iop_XorV128: */
     return 2;
   case Iop_RecpExpF64:
