@@ -1033,8 +1033,8 @@ IRExpr* runGetMem(IRSB* sbOut, IRExpr* guard, int size, IRExpr* memSrc){
   }
   loadDirty->guard = guard;
   loadDirty->mFx = Ifx_Read;
-  loadDirty->mAddr = mkU64((uintptr_t)&shadowMemory);
-  loadDirty->mSize = sizeof(VgHashTable*);
+  loadDirty->mAddr = mkU64((uintptr_t)shadowMemTable);
+  loadDirty->mSize = sizeof(ShadowMemEntry) * LARGE_PRIME;
   addStmtToIRSB(sbOut, IRStmt_Dirty(loadDirty));
   return IRExpr_RdTmp(result);
 }
@@ -1046,8 +1046,8 @@ void addSetMem(IRSB* sbOut, IRExpr* guard, int size,
                       mkIRExprVec_3(memDest, mkU64(size), newTemp));
   storeDirty->guard = guard;
   storeDirty->mFx = Ifx_Modify;
-  storeDirty->mAddr = mkU64((uintptr_t)&shadowMemory);
-  storeDirty->mSize = sizeof(VgHashTable*);
+  storeDirty->mAddr = mkU64((uintptr_t)shadowMemTable);
+  storeDirty->mSize = sizeof(ShadowMemEntry) * LARGE_PRIME;
   addStmtToIRSB(sbOut, IRStmt_Dirty(storeDirty));
 }
 IRExpr* toDoubleBytes(IRSB* sbOut, IRExpr* floatExpr){
