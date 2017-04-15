@@ -189,6 +189,7 @@ int loadConversionSize(IRLoadGOp conversion){
 }
 
 Bool tsAddrCanHaveShadow(Int tsAddr){
+  return True;
   switch(tsContext[tsAddr]){
   case Ft_NonFloat:
   case Ft_Unshadowed:
@@ -198,6 +199,7 @@ Bool tsAddrCanHaveShadow(Int tsAddr){
   }
 }
 Bool tsHasStaticShadow(Int tsAddr){
+  return False;
   switch(tsContext[tsAddr]){
   case Ft_Single:
   case Ft_Double:
@@ -238,6 +240,7 @@ void setMemType(ULong addr, FloatType type){
   }
 }
 FloatType getMemType(ULong addr){
+  return Ft_Unknown;
   MemTypeEntry* entry = VG_(HT_lookup)(memContext, (UWord)addr);
   if (entry != NULL){
     return entry->type;
@@ -247,6 +250,7 @@ FloatType getMemType(ULong addr){
 }
 
 FloatType lookupMemType(ULong addr){
+  return Ft_Unknown;
   // This cast might not be safe? Should be on 64-bit platforms, but
   // if types start colliding check this out.
   MemTypeEntry* entry = VG_(HT_lookup)(memContext, (UWord)addr);
@@ -257,6 +261,7 @@ FloatType lookupMemType(ULong addr){
   }
 }
 Bool memAddrCanHaveShadow(ULong memAddr){
+  return True;
   switch(lookupMemType(memAddr)){
   case Ft_NonFloat:
   case Ft_Unshadowed:
@@ -266,6 +271,7 @@ Bool memAddrCanHaveShadow(ULong memAddr){
   }
 }
 Bool memAddrHasStaticShadow(ULong memAddr){
+  return False;
   switch(lookupMemType(memAddr)){
   case Ft_Single:
   case Ft_Double:
@@ -275,6 +281,7 @@ Bool memAddrHasStaticShadow(ULong memAddr){
   }
 }
 Bool memBlockCanHaveShadow(ULong blockStart, int block_len){
+  return True;
   Bool someShadow = False;
   for(int i = 0; i < block_len; ++i){
     ULong chunk_addr = blockStart + (i * sizeof(float));
@@ -284,6 +291,7 @@ Bool memBlockCanHaveShadow(ULong blockStart, int block_len){
 }
 
 FloatType inferMemType(ULong addr, int size){
+  return Ft_Unknown;
   for(int i = 0; i < size; ++i){
     ULong chunk_addr = addr + (i * sizeof(float));
     FloatType chunk_type = getMemType(chunk_addr);

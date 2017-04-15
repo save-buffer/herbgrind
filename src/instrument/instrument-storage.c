@@ -70,7 +70,7 @@ void instrumentRdTmp(IRSB* sbOut, IRTemp dest, IRTemp src){
 }
 void instrumentWriteConst(IRSB* sbOut, IRTemp dest,
                           IRConst* con){
-  tempContext[dest] = Ft_Unshadowed;
+  tempContext[dest] = Ft_Unknown;
 }
 void instrumentITE(IRSB* sbOut, IRTemp dest,
                    IRExpr* cond,
@@ -416,7 +416,7 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
   }
   int src_size = typeSize(type);
   if (src_size == 1){
-    FloatType valType = tsContext[tsSrc];
+    FloatType valType = Ft_Unknown;//tsContext[tsSrc];
     // Getting the first half of a double is undefined.
     tl_assert(valType != Ft_Double);
     // If it's not a float propagate that information.
@@ -983,7 +983,7 @@ QuickBucketResult quickGetBucketG(IRSB* sbOut, IRExpr* guard,
 }
 IRExpr* runGetMemUnknownG(IRSB* sbOut, IRExpr* guard,
                           int size, IRExpr* memSrc){
-  return runGetMem(sbOut, mkU1(True), size, memSrc);
+  return runGetMemG(sbOut, mkU1(True), size, memSrc);
   QuickBucketResult qresults[4];
   IRExpr* anyNonTrivialChains = mkU1(False);
   IRExpr* allNull_64 = mkU64(1);
@@ -1058,7 +1058,7 @@ void addClearMem(IRSB* sbOut, int size, IRExpr* memDest){
   addClearMemG(sbOut, mkU1(True), size, memDest);
 }
 void addClearMemG(IRSB* sbOut, IRExpr* guard, int size, IRExpr* memDest){
-  IRExpr* hasExistingShadow = mkU1(False);
+  /* IRExpr* hasExistingShadow = mkU1(False); */
   /* IRExpr* hasCollision = mkU1(False); */
   /* for(int i = 0; i < size; ++i){ */
   /*   IRExpr* valDest = runBinop(sbOut, Iop_Add64, memDest, */
