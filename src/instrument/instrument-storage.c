@@ -993,6 +993,7 @@ QuickBucketResult quickGetBucketG(IRSB* sbOut, IRExpr* guard,
 }
 IRExpr* runGetMemUnknownG(IRSB* sbOut, IRExpr* guard,
                           int size, IRExpr* memSrc){
+  return runGetMem(sbOut, mkU1(True), size, memSrc);
   QuickBucketResult qresults[MAX_TEMP_SHADOWS];
   IRExpr* anyNonTrivialChains = mkU1(False);
   IRExpr* allNull_64 = mkU64(1);
@@ -1028,11 +1029,11 @@ IRExpr* runGetMemG(IRSB* sbOut, IRExpr* guard, int size, IRExpr* memSrc){
                       2, "dynamicLoad",
                       VG_(fnptr_to_fnentry)(dynamicLoad),
                       mkIRExprVec_2(memSrc, mkU64(size)));
-  loadDirty->guard = guard;
   loadDirty->mFx = Ifx_Read;
   loadDirty->mAddr = mkU64((uintptr_t)shadowMemTable);
   loadDirty->mSize = sizeof(TableValueEntry) * LARGE_PRIME;
   addStmtToIRSB(sbOut, IRStmt_Dirty(loadDirty));
+  return IRExpr_RdTmp(result);
   return runITE(sbOut, guard, IRExpr_RdTmp(result), mkU64(0));
 }
 void addClearMem(IRSB* sbOut, int size, IRExpr* memDest){
@@ -1040,46 +1041,32 @@ void addClearMem(IRSB* sbOut, int size, IRExpr* memDest){
 }
 void addClearMemG(IRSB* sbOut, IRExpr* guard, int size, IRExpr* memDest){
   IRExpr* hasExistingShadow = mkU1(False);
-  /* IRExpr* hasCollision = mkU1(False); */
-  for(int i = 0; i < size; ++i){
-    IRExpr* valDest = runBinop(sbOut, Iop_Add64, memDest,
-                               mkU64(i * sizeof(float)));
-    IRExpr* destBucket = runMod(sbOut, valDest, mkU32(LARGE_PRIME));
-    IRExpr* destBucketAddr =
-      runBinop(sbOut, Iop_Add64,
-               mkU64((uintptr_t)shadowMemTable),
-               runBinop(sbOut, Iop_Mul64,
-                        destBucket,
-                        mkU64(sizeof(TableValueEntry*))));
-    IRExpr* memEntry = runLoad64(sbOut, destBucketAddr);
-    hasExistingShadow = runOr(sbOut, hasExistingShadow,
-                              runNonZeroCheck64(sbOut, memEntry));
-  }
   addSetMemG(sbOut,
-             runAnd(sbOut, hasExistingShadow, guard),
+             /* runAnd(sbOut, hasExistingShadow, guard), */
+             mkU1(True),
              size, memDest, mkU64(0));
 }
 void addSetMemUnknownG(IRSB* sbOut, IRExpr* guard, int size,
                       IRExpr* memDest, IRExpr* st){
-  IRExpr* tempNonNull = runNonZeroCheck64(sbOut, st);
-  IRExpr* tempNonNull_32 = runUnop(sbOut, Iop_1Uto32, tempNonNull);
-  IRExpr* tempNull_32 = runUnop(sbOut, Iop_Not32, tempNonNull_32);
-  IRExpr* guard_32 = runUnop(sbOut, Iop_1Uto32, guard);
-  addClearMemG(sbOut,
-               runUnop(sbOut, Iop_32to1,
-                       runBinop(sbOut, Iop_And32,
-                                tempNull_32,
-                                guard_32)),
-               size, memDest);
-  IRExpr* shouldDoCSet =
-    runUnop(sbOut, Iop_32to1,
-            runBinop(sbOut, Iop_And32,
-                     tempNonNull_32,
-                     guard_32));
+  /* IRExpr* tempNonNull = runNonZeroCheck64(sbOut, st); */
+  /* IRExpr* tempNonNull_32 = runUnop(sbOut, Iop_1Uto32, tempNonNull); */
+  /* IRExpr* tempNull_32 = runUnop(sbOut, Iop_Not32, tempNonNull_32); */
+  /* IRExpr* guard_32 = runUnop(sbOut, Iop_1Uto32, guard); */
+  /* addClearMemG(sbOut, */
+  /*              runUnop(sbOut, Iop_32to1, */
+  /*                      runBinop(sbOut, Iop_And32, */
+  /*                               tempNull_32, */
+  /*                               guard_32)), */
+  /*              size, memDest); */
+  /* IRExpr* shouldDoCSet = */
+  /*   runUnop(sbOut, Iop_32to1, */
+  /*           runBinop(sbOut, Iop_And32, */
+  /*                    tempNonNull_32, */
+  /*                    guard_32)); */
   addStmtToIRSB(sbOut,
                 mkDirtyG_0_3(setMemShadowTemp,
                              memDest, mkU64(size), st,
-                             shouldDoCSet));
+                             mkU1(True)));
 }
 void addSetMemUnknown(IRSB* sbOut, int size,
                       IRExpr* memDest, IRExpr* st){
@@ -1095,7 +1082,7 @@ void addSetMemG(IRSB* sbOut, IRExpr* guard, int size,
     unsafeIRDirty_0_N(3, "setMemShadowTemp",
                       VG_(fnptr_to_fnentry)(setMemShadowTemp),
                       mkIRExprVec_3(memDest, mkU64(size), newTemp));
-  storeDirty->guard = guard;
+  /* storeDirty->guard = guard; */
   storeDirty->mFx = Ifx_Modify;
   storeDirty->mAddr = mkU64((uintptr_t)shadowMemTable);
   storeDirty->mSize = sizeof(TableValueEntry) * LARGE_PRIME;
