@@ -50,10 +50,12 @@ void resetTypeState(void){
   addClearMemTypes();
 }
 Bool tempIsTyped(int idx){
+  return False;
   return tempContext[idx] == Ft_Single ||
     tempContext[idx] == Ft_Double;
 }
 FloatType tempType(int idx){
+  return Ft_Unknown;
   return tempContext[idx];
 }
 int valueSize(IRSB* sbOut, int idx){
@@ -120,16 +122,21 @@ Bool hasStaticShadow(IRExpr* expr){
 Bool canHaveShadow(IRTypeEnv* typeEnv, IRExpr* expr){
   if (expr->tag == Iex_Const){
     return False;
-  } else if (!isFloatType(typeOfIRExpr(typeEnv, expr))){
-    return False;
-  } else if (tempContext[expr->Iex.RdTmp.tmp] == Ft_NonFloat ||
-             tempContext[expr->Iex.RdTmp.tmp] == Ft_Unshadowed) {
-    return False;
   } else {
     return True;
   }
+
+  /* } else if (!isFloatType(typeOfIRExpr(typeEnv, expr))){ */
+  /*   return False; */
+  /* } else if (tempContext[expr->Iex.RdTmp.tmp] == Ft_NonFloat || */
+  /*            tempContext[expr->Iex.RdTmp.tmp] == Ft_Unshadowed) { */
+  /*   return False; */
+  /* } else { */
+  /*   return True; */
+  /* } */
 }
 Bool canBeFloat(IRTypeEnv* typeEnv, IRExpr* expr){
+  return True;
   if (!isFloatType(typeOfIRExpr(typeEnv, expr))){
     return False;
   } else if (expr->tag == Iex_Const){
@@ -143,14 +150,17 @@ Bool canBeFloat(IRTypeEnv* typeEnv, IRExpr* expr){
 Bool canStoreShadow(IRTypeEnv* typeEnv, IRExpr* expr){
   if (expr->tag == Iex_Const){
     return False;
-  } else if (!isFloatType(typeOfIRExpr(typeEnv, expr))){
-    return False;
-  } else if (tempContext[expr->Iex.RdTmp.tmp] == Ft_NonFloat){
-    tl_assert2(0, "Why are you even asking this?");
-    return False;
   } else {
     return True;
   }
+  /* } else if (!isFloatType(typeOfIRExpr(typeEnv, expr))){ */
+  /*   return False; */
+  /* } else if (tempContext[expr->Iex.RdTmp.tmp] == Ft_NonFloat){ */
+  /*   tl_assert2(0, "Why are you even asking this?"); */
+  /*   return False; */
+  /* } else { */
+  /*   return True; */
+  /* } */
 }
 
 int exprSize(IRTypeEnv* tyenv, IRExpr* expr){
