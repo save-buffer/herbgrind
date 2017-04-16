@@ -103,6 +103,7 @@ void instrumentITE(IRSB* sbOut, IRTemp dest,
       addStoreTempUnshadowed(sbOut, dest);
     }
   } else if (hasStaticShadow(trueExpr) && hasStaticShadow(falseExpr)){
+    tl_assert(0);
     FloatType trueType = tempType(trueExpr->Iex.RdTmp.tmp);
     FloatType falseType = tempType(falseExpr->Iex.RdTmp.tmp);
     if (trueType == falseType){
@@ -160,6 +161,7 @@ void instrumentPut(IRSB* sbOut, Int tsDest, IRExpr* data){
       // runtime, we'll do a runtime check to see if there is a shadow
       // value there, and disown it if there is.
       if (tsHasStaticShadow(dest_addr)){
+        tl_assert(0);
         if (PRINT_VALUE_MOVES){
           addPrint3("Disowning %p "
                     "from thread state overwrite at %d (static)\n",
@@ -190,6 +192,7 @@ void instrumentPut(IRSB* sbOut, Int tsDest, IRExpr* data){
         }
         addSetTSValUnshadowed(sbOut, dest_addr);
       } else {
+        tl_assert(0);
         if (PRINT_TYPES){
           VG_(printf)("Setting TS(%d) to non-float, "
                       "because %d can't contain a float.\n",
@@ -202,6 +205,7 @@ void instrumentPut(IRSB* sbOut, Int tsDest, IRExpr* data){
     int idx = data->Iex.RdTmp.tmp;
     IRExpr* st = runLoadTemp(sbOut, idx);
     if (hasStaticShadow(data)){
+      tl_assert(0);
       IRExpr* values =
         runArrow(sbOut, st, ShadowTemp, values);
       for(int i = 0; i < dest_size; ++i){
@@ -337,6 +341,7 @@ void instrumentPutI(IRSB* sbOut,
         tempType(data->Iex.RdTmp.tmp) == Ft_Double &&
         i % 2 == 1 &&
         tsContext[dest] == Ft_NonFloat){
+      tl_assert(0);
       continue;
     }
     tsContext[dest] = Ft_Unknown;
@@ -354,6 +359,7 @@ void instrumentPutI(IRSB* sbOut,
     int tempIdx = data->Iex.RdTmp.tmp;
     IRExpr* st = runLoadTemp(sbOut, tempIdx);
     if (hasStaticShadow(data)){
+      tl_assert(0);
       IRExpr* values =
         runArrow(sbOut, st, ShadowTemp, values);
       for(int i = 0; i < dest_size; ++i){
@@ -421,14 +427,17 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
     tl_assert(valType != Ft_Double);
     // If it's not a float propagate that information.
     if (valType == Ft_NonFloat){
+      tl_assert(0);
       if (PRINT_TYPES){
         VG_(printf)("Marking %d as nonfloat because TS(%d) is nonfloat.\n",
                     dest, tsSrc);
       }
       addStoreTempNonFloat(sbOut, dest);
     } else if (valType == Ft_Unshadowed){
+      tl_assert(0);
       addStoreTempUnshadowed(sbOut, dest);
     } else if (valType == Ft_Single) {
+      tl_assert(0);
       // If we know it's a non-null single, then we can load it
       // unconditionally.
       IRExpr* val = runGetTSVal(sbOut, tsSrc);
@@ -464,14 +473,17 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
   } else if (src_size == 2){
     FloatType valType = inferTSType64(tsSrc);
     if (valType == Ft_NonFloat){
+      tl_assert(0);
       if (PRINT_TYPES){
         VG_(printf)("Marking %d as nonfloat because TS(%d) is nonfloat.\n",
                     dest, tsSrc);
       }
       addStoreTempNonFloat(sbOut, dest);
     } else if (valType == Ft_Unshadowed){
+      tl_assert(0);
       addStoreTempUnshadowed(sbOut, dest);
     } else if (valType == Ft_Single){
+      tl_assert(0);
       IRExpr* vals[2];
       for(int i = 0; i < 2; ++i){
         Int src_addr = tsSrc + (i * sizeof(float));
@@ -499,6 +511,7 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
         addPrint2("for value from TS(%d)\n", mkU64(tsSrc));
       }
     } else if (valType == Ft_Double){
+      tl_assert(0);
       IRExpr* val = runGetTSVal(sbOut, tsSrc);
       IRExpr* temp = runMkShadowTempValues(sbOut, 1, &val);
       if (PRINT_VALUE_MOVES){
@@ -527,8 +540,10 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
   } else if (src_size == 4){
     FloatType valType = inferTSType64(tsSrc);
     if (valType == Ft_NonFloat){
+      tl_assert(0);
       addStoreTempNonFloat(sbOut, dest);
     } else if (valType == Ft_Unshadowed){
+      tl_assert(0);
       addStoreTempUnshadowed(sbOut, dest);
     } else
     // For mismatched V128's, we're going to assume that the program
@@ -537,6 +552,7 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
     // result back to memory/threadstate with the values copied as
     // part of the operation, so keep an eye out for this.
     if (valType == Ft_Single){
+      tl_assert(0);
       IRExpr* vals[4];
       for(int i = 0; i < 4; ++i){
         Int src_addr = tsSrc + (i * sizeof(float));
@@ -562,6 +578,7 @@ void instrumentGet(IRSB* sbOut, IRTemp dest,
         addPrint2("for value from TS(%d)\n", mkU64(tsSrc));
       }
     } else if (valType == Ft_Double){
+      tl_assert(0);
       IRExpr* vals[2];
       for(int i = 0; i < 2; ++i){
         Int src_addr = tsSrc + (i * sizeof(double));
@@ -649,13 +666,16 @@ void instrumentLoad(IRSB* sbOut, IRTemp dest,
     ULong const_addr = addr->Iex.Const.con->Ico.U64;
     FloatType fType = inferMemType(const_addr, dest_size);
     if (fType == Ft_NonFloat){
+      tl_assert(0);
       addStoreTempNonFloat(sbOut, dest);
     } else if (fType == Ft_Unshadowed){
+      tl_assert(0);
       addStoreTempUnshadowed(sbOut, dest);
     } else if (fType == Ft_Unknown){
       IRExpr* st = runGetMemUnknown(sbOut, dest_size, addr);
       addStoreTempUnknown(sbOut, st, dest);
     } else {
+      tl_assert(0);
       IRExpr* st = runGetMemUnknown(sbOut, dest_size, addr);
       addStoreTemp(sbOut, st, type, dest);
     }
@@ -668,6 +688,7 @@ void instrumentLoadG(IRSB* sbOut, IRTemp dest,
                      IRExpr* altValue, IRExpr* guard,
                      IRExpr* addr, IRLoadGOp conversion){
   if (!isFloat(sbOut->tyenv, dest)){
+    tl_assert(0);
     return;
   }
   int dest_size = loadConversionSize(conversion);
