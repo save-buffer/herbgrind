@@ -308,6 +308,7 @@ FloatType inferTSType64(Int tsAddr){
   tl_assert2(tsContext[tsAddr] != Ft_Double ||
              tsContext[tsAddr + sizeof(float)] == Ft_NonFloat,
              "Mismatched float at TS(%d)!", tsAddr);
+  return Ft_Unknown;
   if (tsContext[tsAddr] == Ft_Unknown){
     return tsContext[tsAddr + sizeof(float)];
   } else {
