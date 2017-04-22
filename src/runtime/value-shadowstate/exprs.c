@@ -63,6 +63,7 @@ VarList extraVars;
 List_Impl(NodePos, Group);
 Xarray_Impl(Group, GroupList);
 // This is unfortunate...
+int graftPointConc(ConcExpr* parent, ConcExpr* child);
 inline
 int graftPointConc(ConcExpr* parent, ConcExpr* child){
   return 1;
@@ -72,6 +73,7 @@ int graftPointConc(ConcExpr* parent, ConcExpr* child){
     childOp->block_addr != parentOp->block_addr ||
     childOp->op_addr >= parentOp->op_addr;
 }
+int graftPointSymb(SymbExpr* parent, SymbExpr* child);
 inline
 int graftPointSymb(SymbExpr* parent, SymbExpr* child){
   return 1;
