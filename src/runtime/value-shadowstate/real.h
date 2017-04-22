@@ -57,15 +57,4 @@ void freeReal(Real real);
 void copyReal(Real src, Real dest);
 void printReal(Real real);
 
-__attribute__((always_inline))
-inline
-void setReal_fast(Real r, double bytes){
-  if (no_reals) return;
-  #ifdef USE_MPFR
-  mpfr_set_d(r->mpfr_val, bytes, MPFR_RNDN);
-  #else
-  mpf_set_d(r->mpf_val, bytes);
-  #endif
-}
-
 #endif

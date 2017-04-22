@@ -96,7 +96,7 @@ VG_REGPARM(1) void checkCompare(ShadowCmpInfo* info){
   }
   for(int i = 0; i < 2; ++i){
     if (info->argTemps[i] == -1){
-      disownShadowTemp_fast(args[0]);
+      disownShadowTemp(args[0]);
     }
   }
 }
@@ -110,6 +110,6 @@ VG_REGPARM(3) void checkConvert(FloatType argPrecision, IRTemp tmp,
                       correctResult != computedValue,
                       1, &(arg->values[0]));
   if (tmp == -1){
-    disownShadowTemp_fast(arg);
+    disownShadowTemp(arg);
   }
 }

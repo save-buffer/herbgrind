@@ -538,7 +538,7 @@ void freeShadowValue(ShadowValue* val){
   if (!no_exprs){
     disownConcExpr(val->expr);
   }
-  stack_push_fast(freedVals, (void*)val);
+  stack_push(freedVals, (void*)val);
 }
 
 ShadowValue* copyShadowValue(ShadowValue* val){
@@ -556,13 +556,13 @@ ShadowValue* copyShadowValue(ShadowValue* val){
 inline
 ShadowValue* mkShadowValueBare(FloatType type){
   ShadowValue* result;
-  if (stack_empty_fast(freedVals)){
+  if (stack_empty(freedVals)){
     result = newShadowValue(type);
     if (PRINT_VALUE_MOVES || print_allocs){
       VG_(printf)("Alloced new shadow value %p\n", result);
     }
   } else {
-    result = (void*)stack_pop_fast(freedVals);
+    result = (void*)stack_pop(freedVals);
     result->type = type;
   }
   result->ref_count = 1;

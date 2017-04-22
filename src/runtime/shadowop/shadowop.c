@@ -85,7 +85,7 @@ VG_REGPARM(1) ShadowTemp* executeShadowOp(ShadowOpInfo* opInfo){
     // According to the libvex_ir.h documentation, the non-operated
     // values should be copied from the first operand.
     result->values[i] = args[0]->values[i];
-    ownNonNullShadowValue(result->values[i]);
+    ownShadowValue(result->values[i]);
   }
   if (PRINT_VALUE_MOVES){
     ppIROp(opInfo->op_code);
@@ -111,7 +111,7 @@ VG_REGPARM(1) ShadowTemp* executeShadowOp(ShadowOpInfo* opInfo){
   }
   for(int i = 0; i < opInfo->exinfo.nargs; ++i){
     if (opInfo->argTemps[i] == -1){
-      disownShadowTemp_fast(args[i]);
+      disownShadowTemp(args[i]);
     }
   }
   return result;
