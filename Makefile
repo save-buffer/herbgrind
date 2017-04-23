@@ -106,7 +106,7 @@ valgrind/Makefile: valgrind/README
 # real makefile.
 	cd valgrind && ./autogen.sh
 	cd valgrind && \
-		CFLAGS+="-fno-stack-protector" \
+		CFLAGS+="-fno-stack-protector " \
 		CFLAGS+="-fno-stack-check" \
 		./configure --prefix=$(shell pwd)/valgrind/$(HG_LOCAL_INSTALL_NAME) \
 		            --enable-only64bit \
