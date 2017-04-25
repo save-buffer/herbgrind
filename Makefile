@@ -111,6 +111,7 @@ valgrind/Makefile: valgrind/README
 		./configure --prefix=$(shell pwd)/valgrind/$(HG_LOCAL_INSTALL_NAME) \
 		            --enable-only64bit \
 		            --build=$(TARGET_PLAT)
+	touch valgrind/patched
 
 # This is the target we call to bring in the dependencies, like gmp,
 # mpfr, and valgrind, and to make sure the herbgrind files have been
