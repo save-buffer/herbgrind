@@ -182,7 +182,7 @@ configure-mpfr-32:
 	cd deps/mpfr-32/ && \
 		CFLAGS="-fno-stack-protector" \
 		./configure --prefix=$(shell pwd)/deps/mpfr-32/$(HG_LOCAL_INSTALL_NAME) \
-		            --with-gmp-build=$(shell pwd)/deps/gmp-32/$(HG_LOCAL_INSTALL_NAME) \
+		            --with-gmp-build=$(shell pwd)/deps/gmp-32/
 		            --build=i386 \
 		            $(MPFR_CONFIGURE_FLAGS)
 
@@ -190,7 +190,7 @@ configure-mpfr-64:
 	cd deps/mpfr-64/ && \
 		CFLAGS="-fno-stack-protector" \
 		./configure --prefix=$(shell pwd)/deps/mpfr-64/$(HG_LOCAL_INSTALL_NAME) \
-		            --with-gmp-build=$(shell pwd)/deps/gmp-64/$(HG_LOCAL_INSTALL_NAME) \
+		            --with-gmp-build=$(shell pwd)/deps/gmp-64/
 		            --build=amd64 \
 		            $(MPFR_CONFIGURE_FLAGS)
 
