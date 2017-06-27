@@ -43,4 +43,12 @@ ShadowValue* executeChannelShadowOp(ShadowOpInfo* opinfo,
                                     ShadowValue** args,
                                     double* computedArgs,
                                     double computedResult);
+typedef struct _shadowOpCacheEntry {
+  struct _shadowOpCacheEntry* next;
+  UWord hash;
+  IROp_Extended op;
+  ShadowValue* args[4];
+  ShadowValue* result;
+} ShadowOpCacheEntry;
+
 #endif
