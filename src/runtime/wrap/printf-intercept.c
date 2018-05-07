@@ -46,7 +46,7 @@ void interceptPrintf(Addr address, void* stackFrame,
   char* formatString = formatStringObject->string;
   void* nextArg = (char*)stackFrame + 8;
   int numFloatArgs = 0;
-  /* VG_(printf)("Intercepting printf at %#lX with format %s\n", address, formatString); */
+  VG_(printf)("Intercepting printf at %#lX with format %s\n", address, formatString);
   for(char* p = formatString; *p != '\0'; ++p){
     if (*p == '%'){
       switch(*(p + 1)){
@@ -56,11 +56,11 @@ void interceptPrintf(Addr address, void* stackFrame,
         numFloatArgs += 1;
         break;
       default: {
-        /* int* argLoc = nextArg; */
+        int* argLoc = nextArg;
         nextArg = (char*)nextArg + 8;
-        /* VG_(printf)("argLoc is %p\n", argLoc); */
-        /* int arg = (*argLoc) >> 1; */
-        /* VG_(printf)("Found integer arg %d with format specifier %%d\n", arg); */
+        VG_(printf)("argLoc is %p\n", argLoc);
+        int arg = (*argLoc) >> 1;
+        VG_(printf)("Found integer arg %d with format specifier %%d\n", arg);
       }
         break;
       }
@@ -75,12 +75,12 @@ void interceptPrintf(Addr address, void* stackFrame,
       case 'f':{
         double* argLoc = nextArg;
         nextArg = (char*)nextArg + 8;
-        /* VG_(printf)("argLoc is %p\n", argLoc); */
+        VG_(printf)("argLoc is %p\n", argLoc);
         maybeMarkImportantAtAddr(getMemShadow((uintptr_t)(void*)argLoc),
                                  *argLoc, numFloatArgs - curArg, numFloatArgs, address);
-        /* VG_(printf)("Found double arg "); */
-        /* ppFloat(*argLoc); */
-        /* VG_(printf)(" for with format specifier %%%c\n", *(p + 1)); */
+        VG_(printf)("Found double arg ");
+        ppFloat(*argLoc);
+        VG_(printf)(" for with format specifier %%%c\n", *(p + 1));
         curArg += 1;
       }
         break;
