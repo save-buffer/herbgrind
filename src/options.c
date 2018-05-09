@@ -63,8 +63,8 @@ Bool print_inferred_types = False;
 Bool print_statement_numbers = False;
 Int longprint_len = 15;
 
-Bool dont_ignore_pure_zeroes = False;
 Bool expr_colors = False;
+Bool dont_ignore_pure_zeroes = False;
 Bool print_object_files = False;
 Bool print_subexpr_locations = False;
 Bool output_mark_exprs = False;
